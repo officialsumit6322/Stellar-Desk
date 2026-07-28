@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>Hotel & Restaurant Management System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#FBF7EF; --paper:#FFFFFF; --ink:#16302B; --ink-soft:#4B615B;
+    --line:#E4DCC8; --line-soft:#EFE9D8; --accent:#E0932E; --accent-deep:#B5691A;
+    --accent-bg:#FBEBD3; --good:#2F7A4D; --good-bg:#E5F2E9; --bad:#B23B3B; --bad-bg:#FBE7E7;
+    --sidebar:#122A25; --sidebar-soft:#9FC4B9;
+    --mono:'JetBrains Mono',monospace; --display:'Fraunces',serif; --body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{font-family:var(--body);background:var(--bg);color:var(--ink);display:flex;min-height:100vh;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+  .sidebar{width:200px;flex:none;background:var(--sidebar);color:var(--sidebar-soft);display:flex;flex-direction:column;padding:20px 0;}
+  .brand{font-family:var(--display);font-weight:700;font-size:18px;color:#fff;padding:0 20px 18px 20px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:10px;line-height:1.3;}
+  .brand small{display:block;font-family:var(--body);font-weight:400;font-size:10.5px;letter-spacing:.05em;color:var(--sidebar-soft);text-transform:uppercase;margin-top:4px;}
+  nav.navlist{display:flex;flex-direction:column;gap:2px;padding:8px 10px;}
+  .navbtn{display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--sidebar-soft);padding:10px 12px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;text-align:left;font-family:var(--body);transition:background .15s,color .15s;width:100%;}
+  .navbtn:hover{background:rgba(255,255,255,0.06);color:#fff;}
+  .navbtn.active{background:var(--accent);color:#1c1206;font-weight:600;}
+  .navbtn .ico{width:18px;text-align:center;font-size:15px;}
+  .sidebar-foot{margin-top:auto;padding:14px 20px;font-size:11px;color:rgba(159,196,185,0.75);border-top:1px solid rgba(255,255,255,0.08);}
+  .sidebar-foot .who{color:#fff;font-weight:600;display:block;margin-bottom:6px;}
+  .logout-btn{background:rgba(255,255,255,0.08);border:none;color:#fff;font-size:11.5px;padding:6px 10px;border-radius:6px;cursor:pointer;width:100%;font-family:var(--body);font-weight:600;}
+  .logout-btn:hover{background:rgba(255,255,255,0.16);}
+
+  main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--line);background:var(--paper);flex:none;}
+  .topbar h1{font-family:var(--display);font-size:22px;margin:0;font-weight:600;}
+  .topbar .clock{font-family:var(--mono);font-size:13px;color:var(--ink-soft);}
+  .content{flex:1;overflow-y:auto;padding:24px 28px 60px 28px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .cardrow{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:170px;flex:1;}
+  .stat .label{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;}
+  .stat .value{font-family:var(--display);font-size:26px;font-weight:600;margin-top:6px;}
+  .stat .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  h2.sectitle{font-family:var(--display);font-size:19px;font-weight:600;margin:0 0 14px 0;}
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:20px;}
+
+  table.datatable{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.datatable th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:8px 10px;font-weight:600;}
+  table.datatable td{padding:9px 10px;border-bottom:1px solid var(--line-soft);}
+  table.datatable tr:last-child td{border-bottom:none;}
+  .num{font-family:var(--mono);text-align:right;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;}
+  .pill.good{background:var(--good-bg);color:var(--good);}
+  .pill.bad{background:var(--bad-bg);color:var(--bad);}
+  .pill.warn{background:var(--accent-bg);color:var(--accent-deep);}
+
+  button.btn{font-family:var(--body);font-weight:600;font-size:13px;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--ink);color:#fff;}
+  button.btn:hover{background:#0d201c;}
+  button.btn.accent{background:var(--accent);color:#1c1206;}
+  button.btn.accent:hover{background:var(--accent-deep);color:#fff;}
+  button.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  button.btn.ghost:hover{background:var(--bg);}
+  button.btn.danger{background:var(--bad-bg);color:var(--bad);}
+  button.btn.small{padding:5px 10px;font-size:12px;border-radius:6px;}
+  button.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  input,select{font-family:var(--body);font-size:13.5px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-soft);font-weight:600;}
+  label.chk{display:flex;flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:500;}
+
+  .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end;}
+
+  .tablegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+  .tablecard{border-radius:12px;padding:14px 16px;cursor:pointer;border:1px solid var(--line);background:var(--paper);transition:transform .1s;}
+  .tablecard:hover{transform:translateY(-2px);}
+  .tablecard.free{border-left:5px solid var(--good);}
+  .tablecard.occupied{border-left:5px solid var(--accent);background:var(--accent-bg);}
+  .tablecard .tname{font-family:var(--display);font-size:17px;font-weight:600;}
+  .tablecard .tstatus{font-size:12px;margin-top:4px;color:var(--ink-soft);}
+  .tablecard .tamount{font-family:var(--mono);font-size:14px;margin-top:8px;font-weight:700;}
+  .ticon{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:11px;line-height:1;}
+
+  .overlay{position:fixed;inset:0;background:rgba(15,25,22,0.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .overlay.active{display:flex;}
+  .modal{background:var(--bg);border-radius:14px;width:100%;max-width:920px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);background:var(--paper);}
+  .modal-head h3{font-family:var(--display);margin:0;font-size:18px;}
+  .modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
+  .modal-body{flex:1;overflow-y:auto;padding:18px 20px;}
+
+  .order-layout{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+  @media (max-width:720px){.order-layout{grid-template-columns:1fr;}}
+  .menu-search{margin-bottom:10px;width:100%;}
+  .cat-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .cat-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;font-weight:600;}
+  .cat-chip.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .menu-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:360px;overflow-y:auto;}
+  .menu-item{border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px 12px;cursor:pointer;}
+  .menu-item:hover{border-color:var(--accent);}
+  .menu-item .mi-name{font-weight:600;font-size:13.5px;}
+  .menu-item .mi-price{font-family:var(--mono);color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+  .menu-item .mi-stock{font-size:11px;margin-top:3px;}
+
+  .ticket{background:#fffef8;border:1px dashed #C9BFA0;border-radius:6px;padding:16px 16px 20px 16px;font-family:var(--mono);position:relative;}
+  .ticket::before{content:"";position:absolute;top:-1px;left:0;right:0;height:8px;background-image:radial-gradient(circle at 6px 4px, var(--bg) 4px, transparent 4.5px);background-size:16px 8px;background-repeat:repeat-x;}
+  .ticket-head{text-align:center;border-bottom:1px dashed #C9BFA0;padding-bottom:8px;margin-bottom:8px;}
+  .ticket-head .tt{font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:.03em;}
+  .ticket-head .ts{font-size:11px;color:var(--ink-soft);}
+  .ticket-line{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;align-items:center;gap:6px;}
+  .ticket-line .tl-name{flex:1;}
+  .ticket-line .tl-qty{display:flex;align-items:center;gap:4px;}
+  .qtybtn{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:12px;line-height:1;}
+  .ticket-total{border-top:1px dashed #C9BFA0;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:700;}
+  .ticket-empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:30px 0;font-family:var(--body);}
+  .rm-btn{background:none;border:none;color:var(--bad);cursor:pointer;font-size:14px;}
+
+  .billbox{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:12px;}
+  .billrow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;font-family:var(--mono);}
+  .billrow.grand{font-weight:700;font-size:15px;border-top:1px solid var(--line);margin-top:6px;padding-top:8px;}
+
+  .empty-hint{color:var(--ink-soft);font-size:13px;text-align:center;padding:30px 10px;}
+
+  .report-filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .barwrap{background:var(--line-soft);border-radius:6px;height:8px;overflow:hidden;margin-top:4px;width:100%;}
+  .barfill{height:100%;background:var(--accent);}
+
+  .theme-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .theme-swatch{width:100px;border-radius:10px;border:2px solid var(--line);cursor:pointer;overflow:hidden;padding:0;background:none;}
+  .theme-swatch.active{border-color:var(--ink);}
+  .theme-swatch .sw-top{height:36px;display:flex;}
+  .theme-swatch .sw-top div{flex:1;}
+  .theme-swatch .sw-label{font-size:11.5px;padding:6px;text-align:center;font-weight:600;background:#fff;color:#222;}
+
+  .userrow-edit{background:var(--bg);}
+  .permsline{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;}
+  .authbg{position:fixed;inset:0;background:var(--sidebar);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .authbg.hidden{display:none;}
+  .authcard{background:var(--paper);border-radius:16px;padding:30px 28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .authcard h2{font-family:var(--display);margin:0 0 4px 0;font-size:22px;}
+  .authcard p.sub{color:var(--ink-soft);font-size:13px;margin:0 0 18px 0;}
+  .authcard label.f{margin-bottom:10px;}
+  .authcard input{width:100%;}
+  .autherr{color:var(--bad);font-size:12.5px;margin-top:4px;min-height:16px;}
+
+  @media (max-width:860px){
+    .sidebar{width:64px;}
+    .brand{font-size:0;padding:0 0 18px 0;text-align:center;}
+    .brand::before{content:"HMS";font-size:16px;}
+    .brand small{display:none;}
+    .navbtn span.label{display:none;}
+    .navbtn{justify-content:center;}
+    .sidebar-foot{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="authbg" id="authOverlay">
+  <div class="authcard">
+    <h2 id="authTitle">Master ID Setup</h2>
+    <p class="sub" id="authSub">Software shuru karne ke liye pehle Master ID banayein.</p>
+    <div id="authBody"></div>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="brand" id="brandBox">Hotel Name<small>Hotel & Restaurant</small></div>
+  <nav class="navlist" id="navlist"></nav>
+  <div class="sidebar-foot">
+    <span class="who" id="whoBox">-</span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</aside>
+
+<main>
+  <div class="topbar">
+    <h1 id="viewTitle">Dashboard</h1>
+    <div class="clock" id="clock"></div>
+  </div>
+  <div class="content">
+
+    <section class="view" id="view-dashboard">
+      <div class="cardrow" id="dashStats"></div>
+      <div class="panel">
+        <h2 class="sectitle">Aaj ke Top Bikne Wale Items</h2>
+        <table class="datatable" id="dashTopItems"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Revenue</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Low Stock Alert</h2>
+        <table class="datatable" id="dashLowStock"><thead><tr><th>Item</th><th class="num">Current Stock</th><th class="num">Reorder Level</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <section class="view" id="view-tables">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;gap:14px;font-size:13px;color:var(--ink-soft);">
+          <span>&#9679; <span style="color:var(--good)">Free</span></span>
+          <span>&#9679; <span style="color:var(--accent-deep)">Occupied</span></span>
+        </div>
+        <button class="btn ghost small" onclick="addTablePrompt()">+ Naya Table</button>
+      </div>
+      <div class="tablegrid" id="tableGrid"></div>
+    </section>
+
+    <section class="view" id="view-menu">
+      <div class="panel">
+        <h2 class="sectitle">Naya Item Add Karein</h2>
+        <div class="formgrid">
+          <label class="f">Item Naam<input id="mi_name" placeholder="e.g. Paneer Butter Masala"></label>
+          <label class="f">Category<input id="mi_cat" placeholder="e.g. Main Course"></label>
+          <label class="f">Price (Rs)<input id="mi_price" type="number" step="0.01" placeholder="0"></label>
+          <label class="f">Unit<input id="mi_unit" placeholder="plate / pc / kg"></label>
+          <label class="f">Opening Stock<input id="mi_stock" type="number" placeholder="0"></label>
+          <label class="f">Reorder Level<input id="mi_reorder" type="number" placeholder="5"></label>
+          <button class="btn accent" onclick="addMenuItem()">+ Add Item</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Sabhi Menu Items</h2>
+        <table class="datatable" id="menuTable">
+          <thead><tr><th>Item</th><th>Category</th><th class="num">Price</th><th>Unit</th><th class="num">Stock</th><th class="num">Reorder</th><th style="width:150px;">Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-stock">
+      <div class="panel">
+        <h2 class="sectitle">Stock Add Karein (Purchase Entry)</h2>
+        <div class="formgrid">
+          <label class="f">Item<select id="st_item"></select></label>
+          <label class="f">Quantity<input id="st_qty" type="number" placeholder="0"></label>
+          <label class="f">Note<input id="st_note" placeholder="e.g. Supplier name"></label>
+          <button class="btn accent" onclick="addStock()">+ Stock In</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Current Stock Status</h2>
+        <table class="datatable" id="stockTable"><thead><tr><th>Item</th><th class="num">Current Stock</th><th class="num">Reorder Level</th><th>Status</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Recent Stock Movements</h2>
+        <table class="datatable" id="stockMoveTable"><thead><tr><th>Date</th><th>Item</th><th>Type</th><th class="num">Qty</th><th>Note</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <section class="view" id="view-reports">
+      <div class="report-filterbar">
+        <button class="btn ghost small" data-range="daily" onclick="setReportRange('daily')">Daily</button>
+        <button class="btn ghost small" data-range="monthly" onclick="setReportRange('monthly')">Monthly</button>
+        <button class="btn ghost small" data-range="yearly" onclick="setReportRange('yearly')">Yearly</button>
+        <span style="color:var(--ink-soft);font-size:12px;">ya custom range:</span>
+        <input type="date" id="rp_from">
+        <input type="date" id="rp_to">
+        <button class="btn ghost small" onclick="setReportRange('custom')">Apply</button>
+        <button class="btn ghost small" style="margin-left:auto;" onclick="printReportPDF()">Print / PDF</button>
+        <button class="btn small" onclick="exportReportExcel()">Export Excel</button>
+      </div>
+      <div class="cardrow" id="reportStats"></div>
+      <div class="panel">
+        <h2 class="sectitle">Item-wise Sale Report</h2>
+        <table class="datatable" id="reportTable"><thead><tr><th>Item</th><th class="num">Qty Sold</th><th class="num">Revenue</th><th style="width:120px;">Share</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Sabhi Bills (Range Ke Andar)</h2>
+        <table class="datatable" id="billsTable"><thead><tr><th>Bill #</th><th>Date</th><th>Table</th><th>Staff</th><th>Customer</th><th class="num">Amount</th><th>Payment</th><th style="width:190px;">Actions</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="panel">
+        <h2 class="sectitle">Hotel Ki Jaankari</h2>
+        <div class="formgrid">
+          <label class="f">Hotel / Restaurant Ka Naam<input id="set_name"></label>
+          <label class="f">GST Number<input id="set_gst" placeholder="e.g. 22AAAAA0000A1Z5"></label>
+          <label class="f">Address<input id="set_addr"></label>
+          <label class="f">Phone<input id="set_phone"></label>
+        </div>
+        <button class="btn accent" style="margin-top:14px;" onclick="saveBusinessInfo()">Save Karein</button>
+      </div>
+      <div class="panel">
+        <h2 class="sectitle">Theme Chunein</h2>
+        <div class="theme-row" id="themeRow"></div>
+      </div>
+      <div class="panel" id="userMgmtPanel">
+        <h2 class="sectitle">User / Staff ID Management</h2>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">Master ID hi naye staff ID bana sakti hai aur unhe permission de sakti hai ki wo kaunse section use kar sakein. Note: ye password browser mein hi store hota hai, bahut sensitive password yahan na rakhein.</p>
+        <div class="formgrid" style="margin-bottom:14px;">
+          <label class="f">Username<input id="nu_username"></label>
+          <label class="f">Password<input id="nu_password" type="text"></label>
+        </div>
+        <div class="permsline">
+          <label class="chk"><input type="checkbox" id="nu_tables" checked> Tables/KOT</label>
+          <label class="chk"><input type="checkbox" id="nu_menu" checked> Menu Items</label>
+          <label class="chk"><input type="checkbox" id="nu_stock" checked> Stock</label>
+          <label class="chk"><input type="checkbox" id="nu_reports"> Sale Reports</label>
+        </div>
+        <button class="btn accent" onclick="addUser()">+ Naya Staff ID Add Karein</button>
+        <table class="datatable" style="margin-top:16px;" id="usersTable">
+          <thead><tr><th>Username</th><th>Role</th><th>Permissions</th><th style="width:170px;">Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<div class="overlay" id="orderOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="orderModalTitle">Table</h3>
+      <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="order-layout">
+        <div>
+          <input class="menu-search" id="menuSearch" placeholder="Item khojein..." oninput="renderMenuPicker()">
+          <div class="cat-tabs" id="catTabs"></div>
+          <div class="menu-picker" id="menuPicker"></div>
+        </div>
+        <div>
+          <div class="ticket" id="ticketBox"></div>
+          <div id="billSection"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- STATE ---------------- */
+let items = [], tables = [], orders = [], sales = [], stockMoves = [];
+let users = [], settings = null;
+let versions = {};
+let currentUser = null;
+let currentOrderId = null;
+let editingBillId = null, editingBillTemp = null;
+let editingMenuItemId = null;
+let editingUserId = null;
+let activeCategory = 'Sabhi';
+let reportRangeMode = 'daily';
+let reportFrom = null, reportTo = null;
+
+const KEYS = {
+  items:'hms_items', tables:'hms_tables', orders:'hms_orders', sales:'hms_sales',
+  stockMoves:'hms_stock_moves', users:'hms_users', settings:'hms_settings'
+};
+
+const THEMES = {
+  saffron:{name:'Saffron', bg:'#FBF7EF', paper:'#FFFFFF', ink:'#16302B', inkSoft:'#4B615B', line:'#E4DCC8', lineSoft:'#EFE9D8', accent:'#E0932E', accentDeep:'#B5691A', accentBg:'#FBEBD3', sidebar:'#122A25', sidebarSoft:'#9FC4B9'},
+  royal:{name:'Royal Blue', bg:'#F5F6FA', paper:'#FFFFFF', ink:'#1B2A4A', inkSoft:'#51608A', line:'#DCE1EC', lineSoft:'#EAEEF7', accent:'#3E6AE1', accentDeep:'#28439C', accentBg:'#E4EBFC', sidebar:'#101A33', sidebarSoft:'#A9BEEA'},
+  maroon:{name:'Maroon', bg:'#FBF3EF', paper:'#FFFFFF', ink:'#3B1418', inkSoft:'#7A4F52', line:'#EBD9D4', lineSoft:'#F5E9E6', accent:'#B23B3B', accentDeep:'#7E2626', accentBg:'#F6DEDD', sidebar:'#2C0F12', sidebarSoft:'#DDB0AF'},
+  emerald:{name:'Emerald', bg:'#F3FAF6', paper:'#FFFFFF', ink:'#0E3B2E', inkSoft:'#3E6C5C', line:'#D9EFE3', lineSoft:'#E8F6EF', accent:'#1F9D66', accentDeep:'#136B45', accentBg:'#DDF3E7', sidebar:'#08261D', sidebarSoft:'#A9DCC3'},
+  midnight:{name:'Midnight Dark', bg:'#161A20', paper:'#1F252E', ink:'#EDEFF3', inkSoft:'#A8B0BE', line:'#333B47', lineSoft:'#2A303A', accent:'#E0932E', accentDeep:'#F2A94A', accentBg:'#3A2B14', sidebar:'#0D1015', sidebarSoft:'#8FA396'}
+};
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function money(n){ return 'Rs ' + (Number(n)||0).toFixed(2); }
+function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+
+function applyTheme(key){
+  const t = THEMES[key] || THEMES.saffron;
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg); r.setProperty('--paper', t.paper); r.setProperty('--ink', t.ink);
+  r.setProperty('--ink-soft', t.inkSoft); r.setProperty('--line', t.line); r.setProperty('--line-soft', t.lineSoft);
+  r.setProperty('--accent', t.accent); r.setProperty('--accent-deep', t.accentDeep); r.setProperty('--accent-bg', t.accentBg);
+  r.setProperty('--sidebar', t.sidebar); r.setProperty('--sidebar-soft', t.sidebarSoft);
+}
+
+/* ---------------- STORAGE ---------------- */
+const hasCloudStorage = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+
+async function storeGet(key){
+  if(hasCloudStorage){
+    const r = await window.storage.get(key, true);
+    return {value: r.value, version: r.version};
+  }
+  const v = localStorage.getItem(key);
+  if(v===null) throw new Error('not found: '+key);
+  return {value:v, version:'local'};
+}
+async function storeSet(key, value){
+  if(hasCloudStorage){
+    const w = await window.storage.set(key, value, true);
+    return w ? w.version : 'new';
+  }
+  localStorage.setItem(key, value);
+  return 'local';
+}
+
+async function loadState(){
+  const seedItems = [
+    {id:uid(),name:'Paneer Butter Masala',cat:'Main Course',price:220,unit:'plate',stock:30,reorder:5},
+    {id:uid(),name:'Dal Tadka',cat:'Main Course',price:140,unit:'plate',stock:40,reorder:5},
+    {id:uid(),name:'Butter Naan',cat:'Bread',price:35,unit:'pc',stock:100,reorder:15},
+    {id:uid(),name:'Veg Biryani',cat:'Rice',price:180,unit:'plate',stock:25,reorder:5},
+    {id:uid(),name:'Masala Chai',cat:'Beverage',price:25,unit:'cup',stock:200,reorder:20},
+    {id:uid(),name:'Gulab Jamun',cat:'Dessert',price:60,unit:'plate',stock:20,reorder:5},
+  ];
+  const seedTables = [1,2,3,4,5,6].map(n=>({id:uid(),name:'Table '+n,status:'free',orderId:null}));
+
+  async function loadOne(name, key, seed){
+    try{
+      const r = await storeGet(key);
+      versions[name] = r.version;
+      return JSON.parse(r.value);
+    }catch(e){
+      const v = await storeSet(key, JSON.stringify(seed));
+      versions[name] = v;
+      return seed;
+    }
+  }
+  items = await loadOne('items', KEYS.items, seedItems);
+  tables = await loadOne('tables', KEYS.tables, seedTables);
+  orders = await loadOne('orders', KEYS.orders, []);
+  sales = await loadOne('sales', KEYS.sales, []);
+  stockMoves = await loadOne('stockMoves', KEYS.stockMoves, []);
+  users = await loadOne('users', KEYS.users, []);
+  settings = await loadOne('settings', KEYS.settings, {hotelName:'', gstNo:'', address:'', phone:'', theme:'saffron'});
+}
+
+async function persist(key){
+  const map = {items, tables, orders, sales, stockMoves, users, settings};
+  try{
+    const v = await storeSet(KEYS[key], JSON.stringify(map[key]));
+    versions[key] = v;
+  }catch(e){ console.error('save failed', key, e); }
+}
+
+/* ---------------- AUTH ---------------- */
+function renderAuthScreen(){
+  const overlay = document.getElementById('authOverlay');
+  overlay.classList.remove('hidden');
+  if(users.length===0){
+    document.getElementById('authTitle').textContent = 'Master ID Setup';
+    document.getElementById('authSub').textContent = 'Software shuru karne ke liye pehle Hotel details aur Master ID banayein.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Hotel / Restaurant Ka Naam<input id="su_hotel" placeholder="e.g. Anaaj Bhawan"></label>
+      <label class="f">GST Number (optional)<input id="su_gst" placeholder="e.g. 22AAAAA0000A1Z5"></label>
+      <label class="f">Master Username<input id="su_user" placeholder="e.g. admin"></label>
+      <label class="f">Master Password<input id="su_pass" type="text"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitSetup()">Master ID Banayein & Shuru Karein</button>
+    `;
+  } else {
+    document.getElementById('authTitle').textContent = 'Login Karein';
+    document.getElementById('authSub').textContent = 'Apni User ID aur Password daalein.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Username<input id="li_user"></label>
+      <label class="f">Password<input id="li_pass" type="text"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitLogin()">Login</button>
+    `;
+  }
+}
+async function submitSetup(){
+  const hotel = document.getElementById('su_hotel').value.trim();
+  const gst = document.getElementById('su_gst').value.trim();
+  const uname = document.getElementById('su_user').value.trim();
+  const upass = document.getElementById('su_pass').value;
+  if(!hotel || !uname || !upass){
+    document.getElementById('authErr').textContent = 'Sabhi zaroori fields bharein.';
+    return;
+  }
+  settings.hotelName = hotel; settings.gstNo = gst; settings.theme = 'saffron';
+  await persist('settings');
+  const master = {id:uid(), username:uname, password:upass, role:'master', permissions:{tables:true,menu:true,stock:true,reports:true,settings:true}};
+  users.push(master);
+  await persist('users');
+  currentUser = master;
+  enterApp();
+}
+async function submitLogin(){
+  const uname = document.getElementById('li_user').value.trim();
+  const upass = document.getElementById('li_pass').value;
+  const u = users.find(x=>x.username===uname && x.password===upass);
+  if(!u){
+    document.getElementById('authErr').textContent = 'Username ya password galat hai.';
+    return;
+  }
+  currentUser = u;
+  enterApp();
+}
+function logout(){
+  currentUser = null;
+  document.getElementById('authOverlay').classList.remove('hidden');
+  renderAuthScreen();
+}
+function enterApp(){
+  document.getElementById('authOverlay').classList.add('hidden');
+  applyTheme(settings.theme || 'saffron');
+  updateBrand();
+  buildNav();
+  document.getElementById('whoBox').textContent = currentUser.username + ' (' + (currentUser.role==='master'?'Master':'Staff') + ')';
+  showView('dashboard');
+}
+function updateBrand(){
+  document.getElementById('brandBox').innerHTML = (settings.hotelName || 'Hotel Name') +
+    '<small>' + (settings.gstNo ? 'GSTIN: '+settings.gstNo : 'Hotel & Restaurant') + '</small>';
+}
+
+/* ---------------- NAV ---------------- */
+const NAV_ITEMS = [
+  {key:'dashboard', label:'Dashboard', ico:'&#9737;', perm:null},
+  {key:'tables', label:'Tables / KOT', ico:'&#9974;', perm:'tables'},
+  {key:'menu', label:'Menu Items', ico:'&#9776;', perm:'menu'},
+  {key:'stock', label:'Stock', ico:'&#9670;', perm:'stock'},
+  {key:'reports', label:'Sale Reports', ico:'&#9776;', perm:'reports'},
+  {key:'settings', label:'Settings', ico:'&#9881;', perm:'settings'},
+];
+function buildNav(){
+  const nav = document.getElementById('navlist');
+  const allowed = NAV_ITEMS.filter(n => !n.perm || (currentUser && currentUser.permissions && currentUser.permissions[n.perm]));
+  nav.innerHTML = allowed.map(n=>`<button class="navbtn" data-view="${n.key}" onclick="showView('${n.key}')"><span class="ico">${n.ico}</span><span class="label">${n.label}</span></button>`).join('');
+}
+function showView(v){
+  const allowed = NAV_ITEMS.some(n => n.key===v && (!n.perm || (currentUser.permissions && currentUser.permissions[n.perm])));
+  if(!allowed){ v = 'dashboard'; }
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  const titles = {dashboard:'Dashboard', tables:'Tables / KOT', menu:'Menu Items', stock:'Stock Management', reports:'Sale Reports', settings:'Settings'};
+  document.getElementById('viewTitle').textContent = titles[v];
+  if(v==='dashboard') renderDashboard();
+  if(v==='tables') renderTables();
+  if(v==='menu') renderMenu();
+  if(v==='stock') renderStock();
+  if(v==='reports') renderReports();
+  if(v==='settings') renderSettings();
+}
+function tickClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) + '  ' + d.toLocaleTimeString('en-IN');
+}
+setInterval(tickClock, 1000);
+
+/* ---------------- SETTINGS ---------------- */
+function renderSettings(){
+  document.getElementById('set_name').value = settings.hotelName || '';
+  document.getElementById('set_gst').value = settings.gstNo || '';
+  document.getElementById('set_addr').value = settings.address || '';
+  document.getElementById('set_phone').value = settings.phone || '';
+
+  document.getElementById('themeRow').innerHTML = Object.keys(THEMES).map(k=>{
+    const t = THEMES[k];
+    const isActive = (settings.theme||'saffron')===k;
+    return `<button class="theme-swatch ${isActive?'active':''}" onclick="chooseTheme('${k}')">
+      <div class="sw-top"><div style="background:${t.sidebar}"></div><div style="background:${t.accent}"></div><div style="background:${t.bg}"></div></div>
+      <div class="sw-label">${t.name}</div>
+    </button>`;
+  }).join('');
+
+  document.getElementById('userMgmtPanel').style.display = currentUser.role==='master' ? 'block' : 'none';
+  if(currentUser.role==='master') renderUsers();
+}
+async function saveBusinessInfo(){
+  settings.hotelName = document.getElementById('set_name').value.trim();
+  settings.gstNo = document.getElementById('set_gst').value.trim();
+  settings.address = document.getElementById('set_addr').value.trim();
+  settings.phone = document.getElementById('set_phone').value.trim();
+  await persist('settings');
+  updateBrand();
+  alert('Hotel ki jaankari save ho gayi.');
+}
+async function chooseTheme(key){
+  settings.theme = key;
+  await persist('settings');
+  applyTheme(key);
+  renderSettings();
+}
+function renderUsers(){
+  const tbody = document.querySelector('#usersTable tbody');
+  tbody.innerHTML = users.map(u=>{
+    if(editingUserId===u.id){
+      return `<tr class="userrow-edit">
+        <td>${u.username}</td>
+        <td>${u.role==='master'?'Master':'Staff'}</td>
+        <td colspan="2">
+          <div class="permsline">
+            <label class="chk"><input type="checkbox" id="eu_tables" ${u.permissions.tables?'checked':''}> Tables/KOT</label>
+            <label class="chk"><input type="checkbox" id="eu_menu" ${u.permissions.menu?'checked':''}> Menu</label>
+            <label class="chk"><input type="checkbox" id="eu_stock" ${u.permissions.stock?'checked':''}> Stock</label>
+            <label class="chk"><input type="checkbox" id="eu_reports" ${u.permissions.reports?'checked':''}> Reports</label>
+          </div>
+          <label class="f" style="max-width:220px;">Naya Password (khaali chodein agar badalna nahi)<input id="eu_pass" type="text"></label>
+          <div style="margin-top:8px;display:flex;gap:8px;">
+            <button class="btn accent small" onclick="saveUserEdit('${u.id}')">Save</button>
+            <button class="btn ghost small" onclick="editingUserId=null;renderUsers();">Cancel</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    const permsLabel = u.role==='master' ? 'Sabhi (Master)' :
+      Object.entries(u.permissions).filter(([k,v])=>v && k!=='settings').map(([k])=>k).join(', ') || 'Koi nahi';
+    return `<tr>
+      <td>${u.username}</td>
+      <td>${u.role==='master' ? '<span class="pill warn">Master</span>' : '<span class="pill good">Staff</span>'}</td>
+      <td style="font-size:12px;">${permsLabel}</td>
+      <td>
+        <button class="btn ghost small" onclick="editingUserId='${u.id}';renderUsers();">Edit</button>
+        ${u.role!=='master' ? `<button class="btn danger small" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" class="empty-hint">Koi staff ID nahi hai.</td></tr>`;
+}
+async function addUser(){
+  const uname = document.getElementById('nu_username').value.trim();
+  const upass = document.getElementById('nu_password').value;
+  if(!uname || !upass){ alert('Username aur password daalein'); return; }
+  if(users.some(u=>u.username===uname)){ alert('Ye username pehle se hai'); return; }
+  const perms = {
+    tables: document.getElementById('nu_tables').checked,
+    menu: document.getElementById('nu_menu').checked,
+    stock: document.getElementById('nu_stock').checked,
+    reports: document.getElementById('nu_reports').checked,
+    settings: false
+  };
+  users.push({id:uid(), username:uname, password:upass, role:'staff', permissions:perms});
+  await persist('users');
+  document.getElementById('nu_username').value=''; document.getElementById('nu_password').value='';
+  renderUsers();
+}
+async function saveUserEdit(id){
+  const u = users.find(x=>x.id===id);
+  if(!u) return;
+  u.permissions.tables = document.getElementById('eu_tables').checked;
+  u.permissions.menu = document.getElementById('eu_menu').checked;
+  u.permissions.stock = document.getElementById('eu_stock').checked;
+  u.permissions.reports = document.getElementById('eu_reports').checked;
+  const newPass = document.getElementById('eu_pass').value;
+  if(newPass) u.password = newPass;
+  editingUserId = null;
+  await persist('users');
+  renderUsers();
+}
+async function deleteUser(id){
+  if(!confirm('Ye staff ID delete karni hai?')) return;
+  users = users.filter(u=>u.id!==id);
+  await persist('users');
+  renderUsers();
+}
+
+/* ---------------- MENU ITEMS ---------------- */
+async function addMenuItem(){
+  const name = document.getElementById('mi_name').value.trim();
+  const cat = document.getElementById('mi_cat').value.trim() || 'General';
+  const price = parseFloat(document.getElementById('mi_price').value) || 0;
+  const unit = document.getElementById('mi_unit').value.trim() || 'pc';
+  const stock = parseFloat(document.getElementById('mi_stock').value) || 0;
+  const reorder = parseFloat(document.getElementById('mi_reorder').value) || 5;
+  if(!name){ alert('Item ka naam daalein'); return; }
+  items.push({id:uid(), name, cat, price, unit, stock, reorder});
+  await persist('items');
+  ['mi_name','mi_cat','mi_price','mi_unit','mi_stock','mi_reorder'].forEach(id=>document.getElementById(id).value='');
+  renderMenu();
+}
+async function deleteMenuItem(id){
+  if(!confirm('Ye item delete karna hai?')) return;
+  items = items.filter(i=>i.id!==id);
+  await persist('items');
+  renderMenu();
+}
+function startEditMenuItem(id){ editingMenuItemId = id; renderMenu(); }
+function cancelEditMenuItem(){ editingMenuItemId = null; renderMenu(); }
+async function saveMenuItem(id){
+  const item = items.find(i=>i.id===id);
+  if(!item) return;
+  item.name = document.getElementById('edit_name_'+id).value.trim() || item.name;
+  item.cat = document.getElementById('edit_cat_'+id).value.trim() || item.cat;
+  item.price = parseFloat(document.getElementById('edit_price_'+id).value) || 0;
+  item.unit = document.getElementById('edit_unit_'+id).value.trim() || item.unit;
+  item.stock = parseFloat(document.getElementById('edit_stock_'+id).value) || 0;
+  item.reorder = parseFloat(document.getElementById('edit_reorder_'+id).value) || item.reorder;
+  editingMenuItemId = null;
+  await persist('items');
+  renderMenu();
+}
+function renderMenu(){
+  const tbody = document.querySelector('#menuTable tbody');
+  tbody.innerHTML = items.map(i=>{
+    if(editingMenuItemId===i.id){
+      return `<tr>
+        <td><input id="edit_name_${i.id}" value="${i.name}" style="width:100%"></td>
+        <td><input id="edit_cat_${i.id}" value="${i.cat}" style="width:100%"></td>
+        <td><input id="edit_price_${i.id}" type="number" step="0.01" value="${i.price}" style="width:80px"></td>
+        <td><input id="edit_unit_${i.id}" value="${i.unit}" style="width:70px"></td>
+        <td><input id="edit_stock_${i.id}" type="number" value="${i.stock}" style="width:70px"></td>
+        <td><input id="edit_reorder_${i.id}" type="number" value="${i.reorder}" style="width:60px"></td>
+        <td>
+          <button class="btn accent small" onclick="saveMenuItem('${i.id}')">Save</button>
+          <button class="btn ghost small" onclick="cancelEditMenuItem()">Cancel</button>
+        </td>
+      </tr>`;
+    }
+    return `<tr>
+      <td>${i.name}</td><td>${i.cat}</td><td class="num">${money(i.price)}</td><td>${i.unit}</td>
+      <td class="num">${i.stock}</td><td class="num">${i.reorder}</td>
+      <td>
+        <button class="btn ghost small" onclick="startEditMenuItem('${i.id}')">Edit</button>
+        <button class="btn danger small" onclick="deleteMenuItem('${i.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="empty-hint">Koi item nahi hai. Upar se add karein.</td></tr>`;
+}
+
+/* ---------------- TABLES / KOT ---------------- */
+async function addTablePrompt(){
+  const name = prompt('Naye table ka naam:', 'Table '+(tables.length+1));
+  if(!name) return;
+  tables.push({id:uid(), name, status:'free', orderId:null});
+  await persist('tables');
+  renderTables();
+}
+async function renameTable(id){
+  const t = tables.find(x=>x.id===id);
+  if(!t) return;
+  const name = prompt('Table ka naya naam:', t.name);
+  if(!name) return;
+  t.name = name;
+  const order = orders.find(o=>o.id===t.orderId);
+  if(order) order.tableName = name;
+  await persist('tables');
+  if(order) await persist('orders');
+  renderTables();
+}
+async function deleteTable(id){
+  const t = tables.find(x=>x.id===id);
+  if(!t) return;
+  if(t.status!=='free'){ alert('Occupied table delete nahi ho sakta. Pehle bill banayein.'); return; }
+  if(!confirm('Ye table delete karna hai?')) return;
+  tables = tables.filter(x=>x.id!==id);
+  await persist('tables');
+  renderTables();
+}
+function renderTables(){
+  const grid = document.getElementById('tableGrid');
+  grid.innerHTML = tables.map(t=>{
+    const order = orders.find(o=>o.id===t.orderId);
+    const amt = order ? order.lines.reduce((s,l)=>s+l.qty*l.price,0) : 0;
+    return `<div class="tablecard ${t.status}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+        <div class="tname" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.name}</div>
+        <div style="display:flex;gap:4px;">
+          <button class="ticon" title="Naam badlein" onclick="renameTable('${t.id}')">&#9998;</button>
+          ${t.status==='free' ? `<button class="ticon" title="Delete" onclick="deleteTable('${t.id}')">&times;</button>` : ''}
+        </div>
+      </div>
+      <div class="tstatus" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.status==='free' ? 'Khaali' : (order && order.kotSent ? 'KOT Bheji Gayi' : 'Order Chal Raha Hai')}</div>
+      ${t.status==='occupied' ? `<div class="tamount" style="cursor:pointer;" onclick="openTable('${t.id}')">${money(amt)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+async function openTable(tableId){
+  const t = tables.find(x=>x.id===tableId);
+  if(!t) return;
+  if(t.status==='free'){
+    const order = {id:uid(), tableId:t.id, tableName:t.name, lines:[], createdAt:new Date().toISOString(), kotSent:false, staffName: currentUser.username};
+    orders.push(order);
+    t.status='occupied'; t.orderId=order.id;
+    await persist('orders'); await persist('tables');
+    currentOrderId = order.id;
+  } else {
+    currentOrderId = t.orderId;
+  }
+  editingBillId = null; editingBillTemp = null;
+  activeCategory = 'Sabhi';
+  document.getElementById('menuSearch').value='';
+  document.getElementById('orderModalTitle').textContent = t.name;
+  document.getElementById('orderOverlay').classList.add('active');
+  renderMenuPicker();
+  renderTicket();
+  document.getElementById('billSection').innerHTML='';
+}
+function closeOrderModal(){
+  document.getElementById('orderOverlay').classList.remove('active');
+  currentOrderId = null;
+  editingBillId = null;
+  editingBillTemp = null;
+  renderTables();
+}
+function renderMenuPicker(){
+  const cats = ['Sabhi', ...new Set(items.map(i=>i.cat))];
+  document.getElementById('catTabs').innerHTML = cats.map(c=>
+    `<div class="cat-chip ${c===activeCategory?'active':''}" onclick="setCategory('${c.replace(/'/g,"\\'")}')">${c}</div>`
+  ).join('');
+  const q = (document.getElementById('menuSearch').value||'').toLowerCase();
+  const list = items.filter(i=>(activeCategory==='Sabhi' || i.cat===activeCategory) && i.name.toLowerCase().includes(q));
+  document.getElementById('menuPicker').innerHTML = list.map(i=>`
+    <div class="menu-item" onclick="addLineToOrder('${i.id}')">
+      <div class="mi-name">${i.name}</div>
+      <div class="mi-price">${money(i.price)} / ${i.unit}</div>
+      <div class="mi-stock" style="color:${i.stock<=i.reorder ? 'var(--bad)' : 'var(--ink-soft)'}">Stock: ${i.stock}</div>
+    </div>`).join('') || `<div class="empty-hint">Koi item nahi mila.</div>`;
+}
+function setCategory(c){ activeCategory = c; renderMenuPicker(); }
+function getCurrentOrder(){
+  if(editingBillId) return editingBillTemp;
+  return orders.find(o=>o.id===currentOrderId);
+}
+async function addLineToOrder(itemId){
+  const order = getCurrentOrder();
+  const item = items.find(i=>i.id===itemId);
+  if(!order || !item) return;
+  const existing = order.lines.find(l=>l.itemId===itemId);
+  if(existing){ existing.qty += 1; } else { order.lines.push({itemId:item.id, name:item.name, price:item.price, qty:1}); }
+  if(editingBillId){ if(document.getElementById('bl_tax')) updateBillPreview(); } else { await persist('orders'); }
+  renderTicket();
+}
+async function changeLineQty(itemId, delta){
+  const order = getCurrentOrder();
+  if(!order) return;
+  const line = order.lines.find(l=>l.itemId===itemId);
+  if(!line) return;
+  line.qty += delta;
+  if(line.qty<=0){ order.lines = order.lines.filter(l=>l.itemId!==itemId); }
+  if(editingBillId){ if(document.getElementById('bl_tax')) updateBillPreview(); } else { await persist('orders'); }
+  renderTicket();
+}
+async function removeLine(itemId){
+  const order = getCurrentOrder();
+  if(!order) return;
+  order.lines = order.lines.filter(l=>l.itemId!==itemId);
+  if(editingBillId){ if(document.getElementById('bl_tax')) updateBillPreview(); } else { await persist('orders'); }
+  renderTicket();
+}
+function renderTicket(){
+  const order = getCurrentOrder();
+  const box = document.getElementById('ticketBox');
+  const label = editingBillId ? 'BILL EDIT' : 'KOT TICKET';
+  if(!order || order.lines.length===0){
+    box.innerHTML = `${(!editingBillId && order) ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;font-family:var(--body);">
+      <label style="font-size:11px;color:var(--ink-soft);font-weight:600;white-space:nowrap;">Order Liya (Staff):</label>
+      <input id="staffNameInput" value="${(order.staffName||'').replace(/"/g,'&quot;')}" style="flex:1;padding:4px 8px;font-size:12px;" onchange="updateStaffName(this.value)">
+    </div>` : ''}<div class="ticket-head"><div class="tt">${label}</div><div class="ts">${order?order.tableName:''}</div></div><div class="ticket-empty">Abhi tak koi item add nahi hua</div>`;
+    return;
+  }
+  const total = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  box.innerHTML = `
+    ${!editingBillId ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;font-family:var(--body);">
+      <label style="font-size:11px;color:var(--ink-soft);font-weight:600;white-space:nowrap;">Order Liya (Staff):</label>
+      <input id="staffNameInput" value="${(order.staffName||'').replace(/"/g,'&quot;')}" style="flex:1;padding:4px 8px;font-size:12px;" onchange="updateStaffName(this.value)">
+    </div>` : ''}
+    <div class="ticket-head"><div class="tt">${label}</div><div class="ts">${order.tableName}${order.createdAt ? ' - '+new Date(order.createdAt).toLocaleTimeString('en-IN') : ''}</div></div>
+    ${order.lines.map(l=>`
+      <div class="ticket-line">
+        <div class="tl-name">${l.name}</div>
+        <div class="tl-qty">
+          <button class="qtybtn" onclick="changeLineQty('${l.itemId}',-1)">-</button>
+          <span>${l.qty}</span>
+          <button class="qtybtn" onclick="changeLineQty('${l.itemId}',1)">+</button>
+        </div>
+        <div style="width:70px;text-align:right;">${money(l.qty*l.price)}</div>
+        <button class="rm-btn" onclick="removeLine('${l.itemId}')">&times;</button>
+      </div>`).join('')}
+    <div class="ticket-total"><span>Total</span><span>${money(total)}</span></div>
+    ${editingBillId ? '' : `<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn ghost small" onclick="sendKOT()">${order.kotSent ? 'KOT Bheji Gayi' : 'Kitchen Ko Bhejein (KOT)'}</button>
+      <button class="btn ghost small" onclick="printKOTReceipt()">Print KOT</button>
+      <button class="btn accent small" onclick="openBilling()">Bill Banayein</button>
+    </div>`}
+  `;
+}
+function printKOTReceipt(){
+  const order = getCurrentOrder();
+  if(!order || order.lines.length===0){ alert('Order khaali hai'); return; }
+  const win = window.open('', '_blank', 'width=380,height=640');
+  if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
+  const total = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const linesHtml = order.lines.map(l=>`<tr><td>${l.name}</td><td style="text-align:center">${l.qty}</td></tr>`).join('');
+  win.document.write(`<html><head><title>KOT ${order.tableName}</title>
+    <style>
+      body{font-family:'Courier New',monospace;padding:14px;font-size:13px;color:#111;}
+      h2{margin:0;text-align:center;font-size:16px;}
+      .center{text-align:center;}
+      table{width:100%;border-collapse:collapse;margin-top:8px;}
+      th,td{padding:4px 2px;font-size:13px;}
+      th{border-bottom:1px solid #000;text-align:left;}
+      hr{border:none;border-top:1px dashed #000;}
+    </style></head>
+    <body>
+      <h2>KOT TICKET</h2>
+      <div class="center">${settings.hotelName||''}</div>
+      <hr>
+      <div>Table: ${order.tableName}</div>
+      <div>Waqt: ${new Date(order.createdAt).toLocaleString('en-IN')}</div>
+      ${order.staffName ? `<div>Order Liya: ${order.staffName}</div>` : ''}
+      <hr>
+      <table><thead><tr><th>Item</th><th style="text-align:center">Qty</th></tr></thead>
+      <tbody>${linesHtml}</tbody></table>
+      <hr>
+      <div>Total Items: ${order.lines.reduce((s,l)=>s+l.qty,0)}</div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
+}
+async function updateStaffName(name){
+  const order = getCurrentOrder();
+  if(!order || editingBillId) return;
+  order.staffName = name;
+  await persist('orders');
+}
+async function sendKOT(){
+  const order = getCurrentOrder();
+  if(!order || order.lines.length===0){ alert('Pehle items add karein'); return; }
+  order.kotSent = true;
+  await persist('orders');
+  renderTicket();
+  renderTables();
+}
+function openBilling(){
+  const order = getCurrentOrder();
+  if(!order || order.lines.length===0){ alert('Order khaali hai'); return; }
+  document.getElementById('billSection').innerHTML = `
+    <div class="billbox">
+      <div class="formgrid" style="margin-bottom:10px;">
+        <label class="f">Customer Naam<input id="bl_custname" style="width:100%"></label>
+        <label class="f">Customer Number<input id="bl_custphone" style="width:100%"></label>
+        <label class="f">Customer Address<input id="bl_custaddr" style="width:100%"></label>
+        <label class="f">Customer GST No (agar ho)<input id="bl_custgst" style="width:100%"></label>
+      </div>
+      <div class="formgrid" style="margin-bottom:10px;">
+        <label class="f">Tax %<input id="bl_tax" type="number" value="5" style="width:100%"></label>
+        <label class="f">Discount (Rs)<input id="bl_disc" type="number" value="0" style="width:100%"></label>
+        <label class="f">Payment Mode<select id="bl_pay" style="width:100%"><option>Cash</option><option>UPI</option><option>Card</option></select></label>
+      </div>
+      <div id="billPreview"></div>
+      <button class="btn accent" style="width:100%;margin-top:8px;" onclick="confirmBill()">Bill Confirm Karein & Table Free Karein</button>
+    </div>`;
+  document.getElementById('bl_tax').addEventListener('input', updateBillPreview);
+  document.getElementById('bl_disc').addEventListener('input', updateBillPreview);
+  updateBillPreview();
+}
+function updateBillPreview(){
+  const order = getCurrentOrder();
+  if(!order) return;
+  const subtotal = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
+  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const taxAmt = subtotal*taxPct/100;
+  const grand = Math.max(0, subtotal+taxAmt-disc);
+  document.getElementById('billPreview').innerHTML = `
+    <div class="billrow"><span>Subtotal</span><span>${money(subtotal)}</span></div>
+    <div class="billrow"><span>Tax (${taxPct}%)</span><span>${money(taxAmt)}</span></div>
+    <div class="billrow"><span>Discount</span><span>-${money(disc)}</span></div>
+    <div class="billrow grand"><span>Grand Total</span><span>${money(grand)}</span></div>`;
+}
+async function confirmBill(){
+  const order = getCurrentOrder();
+  if(!order) return;
+  const subtotal = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
+  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const taxAmt = subtotal*taxPct/100;
+  const grand = Math.max(0, subtotal+taxAmt-disc);
+  const pay = document.getElementById('bl_pay').value;
+
+  const custName = document.getElementById('bl_custname').value.trim();
+  const custPhone = document.getElementById('bl_custphone').value.trim();
+  const custAddr = document.getElementById('bl_custaddr').value.trim();
+  const custGst = document.getElementById('bl_custgst').value.trim();
+
+  const sale = {
+    id: 'B' + (sales.length+1001), date: new Date().toISOString(), tableName: order.tableName,
+    staffName: order.staffName || '',
+    customerName: custName, customerPhone: custPhone, customerAddress: custAddr, customerGst: custGst,
+    lines: order.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price})),
+    subtotal, taxPct, taxAmt, discount:disc, grandTotal:grand, payment:pay
+  };
+  sales.push(sale);
+
+  order.lines.forEach(l=>{
+    const item = items.find(i=>i.id===l.itemId);
+    if(item){
+      item.stock = Math.max(0, item.stock - l.qty);
+      stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'out', qty:l.qty, note:'Sale '+sale.id});
+    }
+  });
+
+  const t = tables.find(x=>x.id===order.tableId);
+  if(t){ t.status='free'; t.orderId=null; }
+  orders = orders.filter(o=>o.id!==order.id);
+
+  await persist('sales'); await persist('items'); await persist('stockMoves'); await persist('tables'); await persist('orders');
+  closeOrderModal();
+  const doPrint = confirm('Bill ' + sale.id + ' successfully bana. Grand Total: ' + money(grand) + '\n\nPrint karna hai?');
+  if(doPrint) printBillReceipt(sale);
+}
+
+/* ---------------- PRINT ---------------- */
+function printBillReceipt(sale){
+  const win = window.open('', '_blank', 'width=480,height=720');
+  if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
+  const cgst = sale.taxAmt/2, sgst = sale.taxAmt/2, halfPct = (sale.taxPct/2).toFixed(2);
+  const linesHtml = sale.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${l.name}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">${l.price.toFixed(2)}</td><td style="text-align:right">${l.total.toFixed(2)}</td></tr>`).join('');
+  win.document.write(`<html><head><title>Invoice ${sale.id}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px;font-size:12.5px;color:#111;}
+      .center{text-align:center;}
+      .invhead{text-align:center;border-bottom:2px solid #222;padding-bottom:10px;margin-bottom:10px;}
+      .invhead h2{margin:0;font-size:19px;letter-spacing:.03em;}
+      .invhead div{font-size:11.5px;color:#333;margin-top:2px;}
+      .tag{display:inline-block;margin-top:6px;font-size:11px;font-weight:bold;letter-spacing:.08em;border:1px solid #222;padding:2px 10px;border-radius:3px;}
+      .metabar{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:8px;flex-wrap:wrap;gap:4px;}
+      .custbox{border:1px solid #999;border-radius:4px;padding:8px 10px;margin-bottom:10px;font-size:11.5px;}
+      .custbox b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-bottom:3px;}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+      th,td{border:1px solid #999;padding:5px 7px;font-size:11.5px;}
+      th{background:#eee;text-align:left;}
+      .totbox{width:260px;margin-left:auto;font-size:12px;}
+      .totrow{display:flex;justify-content:space-between;padding:3px 0;}
+      .totrow.grand{border-top:2px solid #222;margin-top:4px;padding-top:6px;font-weight:bold;font-size:14px;}
+      .footnote{text-align:center;font-size:10.5px;color:#666;margin-top:18px;border-top:1px dashed #999;padding-top:8px;}
+    </style></head>
+    <body>
+      <div class="invhead">
+        <h2>${settings.hotelName||'Hotel'}</h2>
+        ${settings.address ? `<div>${settings.address}</div>` : ''}
+        <div>${settings.phone ? 'Ph: '+settings.phone : ''}${settings.phone && settings.gstNo ? ' | ' : ''}${settings.gstNo ? 'GSTIN: '+settings.gstNo : ''}</div>
+        <span class="tag">TAX INVOICE</span>
+      </div>
+      <div class="metabar">
+        <div><b>Bill No:</b> ${sale.id}</div>
+        <div><b>Date:</b> ${new Date(sale.date).toLocaleString('en-IN')}</div>
+        <div><b>Table:</b> ${sale.tableName}</div>
+        ${sale.staffName ? `<div><b>Order By:</b> ${sale.staffName}</div>` : ''}
+      </div>
+      ${(sale.customerName || sale.customerPhone || sale.customerAddress || sale.customerGst) ? `
+      <div class="custbox">
+        <b>Bill To</b>
+        ${sale.customerName ? sale.customerName+'<br>' : ''}
+        ${sale.customerPhone ? 'Ph: '+sale.customerPhone+'<br>' : ''}
+        ${sale.customerAddress ? sale.customerAddress+'<br>' : ''}
+        ${sale.customerGst ? 'GSTIN: '+sale.customerGst : ''}
+      </div>` : ''}
+      <table><thead><tr><th>Sr</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>${linesHtml}</tbody></table>
+      <div class="totbox">
+        <div class="totrow"><span>Subtotal</span><span>Rs ${sale.subtotal.toFixed(2)}</span></div>
+        <div class="totrow"><span>CGST (${halfPct}%)</span><span>Rs ${cgst.toFixed(2)}</span></div>
+        <div class="totrow"><span>SGST (${halfPct}%)</span><span>Rs ${sgst.toFixed(2)}</span></div>
+        <div class="totrow"><span>Discount</span><span>-Rs ${sale.discount.toFixed(2)}</span></div>
+        <div class="totrow grand"><span>Grand Total</span><span>Rs ${sale.grandTotal.toFixed(2)}</span></div>
+        <div class="totrow"><span>Payment Mode</span><span>${sale.payment}</span></div>
+      </div>
+      <div class="footnote">This is a computer generated invoice. Dhanyavaad, fir aayiye!</div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
+}
+function printSaleById(saleId){
+  const sale = sales.find(s=>s.id===saleId);
+  if(sale) printBillReceipt(sale);
+}
+
+/* ---------------- BILL EDIT / DELETE ---------------- */
+function openBillEditor(saleId){
+  if(!currentUser || currentUser.role!=='master'){ alert('Sirf Master ID hi bill edit kar sakti hai.'); return; }
+  const sale = sales.find(s=>s.id===saleId);
+  if(!sale) return;
+  editingBillId = saleId;
+  editingBillTemp = { tableName: sale.tableName, lines: sale.lines.map(l=>({itemId:l.itemId, name:l.name, price:l.price, qty:l.qty})) };
+  currentOrderId = null;
+  activeCategory = 'Sabhi';
+  document.getElementById('menuSearch').value='';
+  document.getElementById('orderModalTitle').textContent = 'Bill Edit: ' + sale.id;
+  document.getElementById('orderOverlay').classList.add('active');
+  renderMenuPicker();
+  renderTicket();
+  document.getElementById('billSection').innerHTML = `
+    <div class="billbox">
+      <div class="formgrid" style="margin-bottom:10px;">
+        <label class="f">Customer Naam<input id="bl_custname" value="${(sale.customerName||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+        <label class="f">Customer Number<input id="bl_custphone" value="${(sale.customerPhone||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+        <label class="f">Customer Address<input id="bl_custaddr" value="${(sale.customerAddress||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+        <label class="f">Customer GST No<input id="bl_custgst" value="${(sale.customerGst||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+      </div>
+      <div class="formgrid" style="margin-bottom:10px;">
+        <label class="f">Tax %<input id="bl_tax" type="number" value="${sale.taxPct}" style="width:100%"></label>
+        <label class="f">Discount (Rs)<input id="bl_disc" type="number" value="${sale.discount}" style="width:100%"></label>
+        <label class="f">Payment Mode<select id="bl_pay" style="width:100%">
+          <option ${sale.payment==='Cash'?'selected':''}>Cash</option>
+          <option ${sale.payment==='UPI'?'selected':''}>UPI</option>
+          <option ${sale.payment==='Card'?'selected':''}>Card</option>
+        </select></label>
+      </div>
+      <div id="billPreview"></div>
+      <button class="btn accent" style="width:100%;margin-top:8px;" onclick="confirmBillEdit()">Bill Update Karein</button>
+    </div>`;
+  document.getElementById('bl_tax').addEventListener('input', updateBillPreview);
+  document.getElementById('bl_disc').addEventListener('input', updateBillPreview);
+  updateBillPreview();
+}
+async function confirmBillEdit(){
+  const sale = sales.find(s=>s.id===editingBillId);
+  if(!sale || !editingBillTemp) return;
+  const subtotal = editingBillTemp.lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
+  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const taxAmt = subtotal*taxPct/100;
+  const grand = Math.max(0, subtotal+taxAmt-disc);
+  const pay = document.getElementById('bl_pay').value;
+
+  sale.lines.forEach(old=>{
+    const item = items.find(i=>i.id===old.itemId);
+    if(item){ item.stock += old.qty; stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'in', qty:old.qty, note:'Bill '+sale.id+' edit - purana stock wapas'}); }
+  });
+  editingBillTemp.lines.forEach(nl=>{
+    const item = items.find(i=>i.id===nl.itemId);
+    if(item){ item.stock = Math.max(0, item.stock - nl.qty); stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'out', qty:nl.qty, note:'Bill '+sale.id+' edit - naya stock kam'}); }
+  });
+
+  sale.lines = editingBillTemp.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price}));
+  sale.subtotal = subtotal; sale.taxPct = taxPct; sale.taxAmt = taxAmt; sale.discount = disc; sale.grandTotal = grand; sale.payment = pay;
+  sale.customerName = document.getElementById('bl_custname').value.trim();
+  sale.customerPhone = document.getElementById('bl_custphone').value.trim();
+  sale.customerAddress = document.getElementById('bl_custaddr').value.trim();
+  sale.customerGst = document.getElementById('bl_custgst').value.trim();
+
+  await persist('sales'); await persist('items'); await persist('stockMoves');
+  editingBillId = null; editingBillTemp = null;
+  document.getElementById('orderOverlay').classList.remove('active');
+  renderReports(); renderStock();
+  alert('Bill ' + sale.id + ' update ho gaya. Naya Grand Total: ' + money(grand));
+}
+async function deleteBill(saleId){
+  if(!currentUser || currentUser.role!=='master'){ alert('Sirf Master ID hi bill delete kar sakti hai.'); return; }
+  if(!confirm('Ye bill delete karna hai? Stock wapas add ho jayega.')) return;
+  const sale = sales.find(s=>s.id===saleId);
+  if(!sale) return;
+  sale.lines.forEach(l=>{
+    const item = items.find(i=>i.id===l.itemId);
+    if(item){ item.stock += l.qty; stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'in', qty:l.qty, note:'Bill '+sale.id+' delete - stock wapas'}); }
+  });
+  sales = sales.filter(s=>s.id!==saleId);
+  await persist('sales'); await persist('items'); await persist('stockMoves');
+  renderReports(); renderStock();
+}
+
+/* ---------------- STOCK ---------------- */
+function refreshStockItemSelect(){
+  const sel = document.getElementById('st_item');
+  sel.innerHTML = items.map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
+}
+async function addStock(){
+  const itemId = document.getElementById('st_item').value;
+  const qty = parseFloat(document.getElementById('st_qty').value);
+  const note = document.getElementById('st_note').value.trim();
+  const item = items.find(i=>i.id===itemId);
+  if(!item || !qty){ alert('Item aur quantity sahi se daalein'); return; }
+  item.stock += qty;
+  stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'in', qty, note});
+  await persist('items'); await persist('stockMoves');
+  document.getElementById('st_qty').value=''; document.getElementById('st_note').value='';
+  renderStock();
+}
+function renderStock(){
+  refreshStockItemSelect();
+  const tbody = document.querySelector('#stockTable tbody');
+  tbody.innerHTML = items.map(i=>{
+    const low = i.stock<=i.reorder;
+    return `<tr><td>${i.name}</td><td class="num">${i.stock}</td><td class="num">${i.reorder}</td>
+      <td>${low ? '<span class="pill bad">Low Stock</span>' : '<span class="pill good">OK</span>'}</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="empty-hint">Koi item nahi hai.</td></tr>`;
+
+  const mtbody = document.querySelector('#stockMoveTable tbody');
+  const recent = [...stockMoves].reverse().slice(0,25);
+  mtbody.innerHTML = recent.map(m=>`
+    <tr><td>${new Date(m.date).toLocaleString('en-IN')}</td><td>${m.itemName}</td>
+    <td>${m.type==='in' ? '<span class="pill good">IN</span>' : '<span class="pill bad">OUT</span>'}</td>
+    <td class="num">${m.qty}</td><td>${m.note||''}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-hint">Koi movement nahi hai.</td></tr>`;
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  const today = todayISO();
+  const todaySales = sales.filter(s=>s.date.slice(0,10)===today);
+  const revenue = todaySales.reduce((s,x)=>s+x.grandTotal,0);
+  const occupied = tables.filter(t=>t.status==='occupied').length;
+  const lowStockCount = items.filter(i=>i.stock<=i.reorder).length;
+
+  document.getElementById('dashStats').innerHTML = `
+    <div class="stat"><div class="label">Aaj Ki Sale</div><div class="value">${money(revenue)}</div><div class="sub">${todaySales.length} bills</div></div>
+    <div class="stat"><div class="label">Occupied Tables</div><div class="value">${occupied} / ${tables.length}</div><div class="sub">abhi ki halat</div></div>
+    <div class="stat"><div class="label">Low Stock Items</div><div class="value">${lowStockCount}</div><div class="sub">reorder level ke neeche</div></div>
+    <div class="stat"><div class="label">Total Menu Items</div><div class="value">${items.length}</div><div class="sub">active items</div></div>
+  `;
+
+  const agg = {};
+  todaySales.forEach(s=> s.lines.forEach(l=>{
+    if(!agg[l.itemId]) agg[l.itemId] = {name:l.name, qty:0, rev:0};
+    agg[l.itemId].qty += l.qty; agg[l.itemId].rev += l.total;
+  }));
+  const top = Object.values(agg).sort((a,b)=>b.rev-a.rev).slice(0,8);
+  document.querySelector('#dashTopItems tbody').innerHTML = top.map(t=>`
+    <tr><td>${t.name}</td><td class="num">${t.qty}</td><td class="num">${money(t.rev)}</td></tr>`).join('')
+    || `<tr><td colspan="3" class="empty-hint">Aaj abhi tak koi sale nahi hui.</td></tr>`;
+
+  const low = items.filter(i=>i.stock<=i.reorder);
+  document.querySelector('#dashLowStock tbody').innerHTML = low.map(i=>`
+    <tr><td>${i.name}</td><td class="num">${i.stock}</td><td class="num">${i.reorder}</td></tr>`).join('')
+    || `<tr><td colspan="3" class="empty-hint">Sabhi items ka stock theek hai.</td></tr>`;
+}
+
+/* ---------------- REPORTS ---------------- */
+function setReportRange(mode){
+  reportRangeMode = mode;
+  document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('accent', b.dataset.range===mode));
+  const now = new Date();
+  if(mode==='daily'){ reportFrom = todayISO(); reportTo = todayISO(); }
+  else if(mode==='monthly'){ reportFrom = now.toISOString().slice(0,8)+'01'; reportTo = todayISO(); }
+  else if(mode==='yearly'){ reportFrom = now.getFullYear()+'-01-01'; reportTo = todayISO(); }
+  else if(mode==='custom'){ reportFrom = document.getElementById('rp_from').value || todayISO(); reportTo = document.getElementById('rp_to').value || todayISO(); }
+  renderReports();
+}
+function filteredSales(){
+  if(!reportFrom) setReportRange('daily');
+  return sales.filter(s=>{ const d = s.date.slice(0,10); return d>=reportFrom && d<=reportTo; });
+}
+function renderReports(){
+  if(!reportFrom){ setReportRange('daily'); return; }
+  const list = filteredSales();
+  const revenue = list.reduce((s,x)=>s+x.grandTotal,0);
+  const avg = list.length ? revenue/list.length : 0;
+
+  document.getElementById('reportStats').innerHTML = `
+    <div class="stat"><div class="label">Total Revenue</div><div class="value">${money(revenue)}</div><div class="sub">${reportFrom} se ${reportTo}</div></div>
+    <div class="stat"><div class="label">Total Bills</div><div class="value">${list.length}</div></div>
+    <div class="stat"><div class="label">Average Bill Value</div><div class="value">${money(avg)}</div></div>
+  `;
+
+  const agg = {};
+  list.forEach(s=> s.lines.forEach(l=>{
+    if(!agg[l.itemId]) agg[l.itemId] = {name:l.name, qty:0, rev:0};
+    agg[l.itemId].qty += l.qty; agg[l.itemId].rev += l.total;
+  }));
+  const arr = Object.values(agg).sort((a,b)=>b.rev-a.rev);
+  const maxRev = arr.length ? arr[0].rev : 1;
+  document.querySelector('#reportTable tbody').innerHTML = arr.map(a=>`
+    <tr><td>${a.name}</td><td class="num">${a.qty}</td><td class="num">${money(a.rev)}</td>
+    <td><div class="barwrap"><div class="barfill" style="width:${(a.rev/maxRev*100).toFixed(0)}%"></div></div></td></tr>`).join('')
+    || `<tr><td colspan="4" class="empty-hint">Is range mein koi sale nahi hai.</td></tr>`;
+
+  document.querySelector('#billsTable tbody').innerHTML = [...list].reverse().map(s=>`
+    <tr><td>${s.id}</td><td>${new Date(s.date).toLocaleString('en-IN')}</td><td>${s.tableName}</td>
+    <td>${s.staffName||'-'}</td><td>${s.customerName||'-'}</td>
+    <td class="num">${money(s.grandTotal)}</td><td>${s.payment}</td>
+    <td>
+      <button class="btn ghost small" onclick="printSaleById('${s.id}')">Print</button>
+      ${currentUser && currentUser.role==='master' ? `<button class="btn ghost small" onclick="openBillEditor('${s.id}')">Edit</button> <button class="btn danger small" onclick="deleteBill('${s.id}')">Delete</button>` : ''}
+    </td></tr>`).join('')
+    || `<tr><td colspan="8" class="empty-hint">Koi bill nahi mila.</td></tr>`;
+
+  window._currentReportAgg = arr;
+  window._currentReportBills = list;
+}
+function exportReportExcel(){
+  const arr = window._currentReportAgg || [];
+  const list = window._currentReportBills || [];
+  if(typeof XLSX === 'undefined'){ alert('Excel library load nahi ho payi. Internet connection check karein.'); return; }
+  const wb = XLSX.utils.book_new();
+
+  const itemRows = [['Item','Qty Sold','Revenue']];
+  arr.forEach(a=> itemRows.push([a.name, a.qty, Number(a.rev.toFixed(2))]));
+  const ws1 = XLSX.utils.aoa_to_sheet(itemRows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Item-wise Report');
+
+  const billRows = [['Bill No','Date','Table','Staff','Customer','Amount','Payment']];
+  list.forEach(s=> billRows.push([s.id, new Date(s.date).toLocaleString('en-IN'), s.tableName, s.staffName||'', s.customerName||'', Number(s.grandTotal.toFixed(2)), s.payment]));
+  const ws2 = XLSX.utils.aoa_to_sheet(billRows);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Bills');
+
+  XLSX.writeFile(wb, `sale-report-${reportFrom}-to-${reportTo}.xlsx`);
+}
+function printReportPDF(){
+  const arr = window._currentReportAgg || [];
+  const list = window._currentReportBills || [];
+  const revenue = list.reduce((s,x)=>s+x.grandTotal,0);
+  const win = window.open('', '_blank', 'width=850,height=900');
+  if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
+  const itemRows = arr.map((a,i)=>`<tr><td>${i+1}</td><td>${a.name}</td><td style="text-align:right">${a.qty}</td><td style="text-align:right">${a.rev.toFixed(2)}</td></tr>`).join('');
+  const billRows = list.map(s=>`<tr><td>${s.id}</td><td>${new Date(s.date).toLocaleString('en-IN')}</td><td>${s.tableName}</td><td>${s.staffName||'-'}</td><td>${s.customerName||'-'}</td><td style="text-align:right">${s.grandTotal.toFixed(2)}</td><td>${s.payment}</td></tr>`).join('');
+  win.document.write(`<html><head><title>Sale Report ${reportFrom} to ${reportTo}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111;}
+      h1{font-size:18px;margin:0;}
+      .sub{color:#555;font-size:12px;margin-bottom:14px;}
+      table{width:100%;border-collapse:collapse;margin-bottom:22px;}
+      th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;}
+      th{background:#f2f2f2;text-align:left;}
+      h3{font-size:14px;border-bottom:2px solid #333;padding-bottom:4px;}
+      .summary{display:flex;gap:24px;margin-bottom:18px;}
+      .summary div{font-size:13px;}
+      .summary b{display:block;font-size:16px;}
+    </style></head>
+    <body>
+      <h1>${settings.hotelName||'Hotel'}</h1>
+      <div class="sub">${settings.gstNo?('GSTIN: '+settings.gstNo+' | '):''}${settings.address||''} ${settings.phone?(' | Ph: '+settings.phone):''}</div>
+      <div class="sub">Sale Report: ${reportFrom} se ${reportTo}</div>
+      <div class="summary">
+        <div>Total Revenue<b>Rs ${revenue.toFixed(2)}</b></div>
+        <div>Total Bills<b>${list.length}</b></div>
+      </div>
+      <h3>Item-wise Sale</h3>
+      <table><thead><tr><th>#</th><th>Item</th><th>Qty Sold</th><th>Revenue (Rs)</th></tr></thead><tbody>${itemRows||'<tr><td colspan=4>Koi data nahi</td></tr>'}</tbody></table>
+      <h3>Sabhi Bills</h3>
+      <table><thead><tr><th>Bill #</th><th>Date</th><th>Table</th><th>Staff</th><th>Customer</th><th>Amount (Rs)</th><th>Payment</th></tr></thead><tbody>${billRows||'<tr><td colspan=7>Koi bill nahi</td></tr>'}</tbody></table>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
+}
+
+/* ---------------- INIT ---------------- */
+(async function init(){
+  await loadState();
+  tickClock();
+  applyTheme(settings.theme || 'saffron');
+  updateBrand();
+  renderAuthScreen();
+  document.getElementById('orderOverlay').addEventListener('click', (e)=>{
+    if(e.target.id==='orderOverlay') closeOrderModal();
+  });
+})();
+</script>
+</body>
+</html>
