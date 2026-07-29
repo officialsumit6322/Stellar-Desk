@@ -330,6 +330,7 @@
         <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">Master ID hi naye staff ID bana sakti hai aur unhe permission de sakti hai ki wo kaunse section use kar sakein. Note: ye password browser mein hi store hota hai, bahut sensitive password yahan na rakhein.</p>
         <div class="formgrid" style="margin-bottom:14px;">
           <label class="f">Username<input id="nu_username"></label>
+          <label class="f">Mobile Number (OTP ke liye)<input id="nu_mobile" placeholder="10 digit mobile"></label>
           <label class="f">Password<input id="nu_password" type="text"></label>
         </div>
         <div class="permsline">
@@ -341,7 +342,7 @@
         </div>
         <button class="btn accent" onclick="addUser()">+ Naya Staff ID Add Karein</button>
         <table class="datatable" style="margin-top:16px;" id="usersTable">
-          <thead><tr><th>Username</th><th>Role</th><th>Permissions</th><th style="width:170px;">Actions</th></tr></thead>
+          <thead><tr><th>Username</th><th>Mobile</th><th>Role</th><th>Permissions</th><th style="width:170px;">Actions</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -414,7 +415,7 @@ const THEMES = {
 
 function isMaster(){ return !!(currentUser && currentUser.role==='master'); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function money(n){ return 'Rs ' + (Number(n)||0).toFixed(2); }
+function money(n){ return 'Rs ' + Math.round(Number(n)||0); }
 function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
 
 function applyTheme(key){
@@ -490,9 +491,11 @@ async function persist(key){
 }
 
 /* ---------------- AUTH ---------------- */
+let fpStage = null, fpUser = null, fpOtp = null;
 function renderAuthScreen(){
   const overlay = document.getElementById('authOverlay');
   overlay.classList.remove('hidden');
+  fpStage = null; fpUser = null; fpOtp = null;
   if(users.length===0){
     document.getElementById('authTitle').textContent = 'Master ID Setup';
     document.getElementById('authSub').textContent = 'Software shuru karne ke liye pehle Hotel details aur Master ID banayein.';
@@ -500,6 +503,7 @@ function renderAuthScreen(){
       <label class="f">Hotel / Restaurant Ka Naam<input id="su_hotel" placeholder="e.g. Anaaj Bhawan"></label>
       <label class="f">GST Number (optional)<input id="su_gst" placeholder="e.g. 22AAAAA0000A1Z5"></label>
       <label class="f">Master Username<input id="su_user" placeholder="e.g. admin"></label>
+      <label class="f">Master Mobile Number<input id="su_mobile" placeholder="10 digit mobile"></label>
       <label class="f">Master Password<input id="su_pass" type="text"></label>
       <div class="autherr" id="authErr"></div>
       <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitSetup()">Master ID Banayein & Shuru Karein</button>
@@ -512,6 +516,7 @@ function renderAuthScreen(){
       <label class="f">Password<input id="li_pass" type="text"></label>
       <div class="autherr" id="authErr"></div>
       <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitLogin()">Login</button>
+      <button class="btn ghost" style="width:100%;margin-top:8px;" onclick="startForgotPassword()">Password Bhool Gaye? (OTP Se Reset Karein)</button>
     `;
   }
 }
@@ -519,14 +524,19 @@ async function submitSetup(){
   const hotel = document.getElementById('su_hotel').value.trim();
   const gst = document.getElementById('su_gst').value.trim();
   const uname = document.getElementById('su_user').value.trim();
+  const mobile = document.getElementById('su_mobile').value.trim();
   const upass = document.getElementById('su_pass').value;
-  if(!hotel || !uname || !upass){
-    document.getElementById('authErr').textContent = 'Sabhi zaroori fields bharein.';
+  if(!hotel || !uname || !upass || !mobile){
+    document.getElementById('authErr').textContent = 'Sabhi zaroori fields bharein (mobile number bhi zaroori hai).';
+    return;
+  }
+  if(!/^[0-9]{10}$/.test(mobile)){
+    document.getElementById('authErr').textContent = 'Mobile number 10 digit ka hona chahiye.';
     return;
   }
   settings.hotelName = hotel; settings.gstNo = gst; settings.theme = 'saffron';
   await persist('settings');
-  const master = {id:uid(), username:uname, password:upass, role:'master', permissions:{tables:true,menu:true,stock:true,rooms:true,reports:true,settings:true}};
+  const master = {id:uid(), username:uname, mobile, password:upass, role:'master', permissions:{tables:true,menu:true,stock:true,rooms:true,reports:true,settings:true}};
   users.push(master);
   await persist('users');
   currentUser = master;
@@ -548,6 +558,62 @@ function logout(){
   document.getElementById('authOverlay').classList.remove('hidden');
   renderAuthScreen();
 }
+
+/* ---- Forgot Password via Mobile OTP ---- */
+function startForgotPassword(){
+  fpStage = 'identify';
+  document.getElementById('authTitle').textContent = 'Password Reset';
+  document.getElementById('authSub').textContent = 'Apna username aur registered mobile number daalein, OTP bheja jayega.';
+  document.getElementById('authBody').innerHTML = `
+    <label class="f">Username<input id="fp_user"></label>
+    <label class="f">Registered Mobile Number<input id="fp_mobile" placeholder="10 digit mobile"></label>
+    <div class="autherr" id="authErr"></div>
+    <button class="btn accent" style="width:100%;margin-top:6px;" onclick="sendResetOtp()">OTP Bhejein</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px;" onclick="renderAuthScreen()">Wapas Login Par Jayein</button>
+  `;
+}
+function sendResetOtp(){
+  const uname = document.getElementById('fp_user').value.trim();
+  const mobile = document.getElementById('fp_mobile').value.trim();
+  const u = users.find(x=>x.username===uname && x.mobile===mobile);
+  if(!u){
+    document.getElementById('authErr').textContent = 'Ye username aur mobile number match nahi kar rahe.';
+    return;
+  }
+  fpUser = u;
+  fpOtp = String(Math.floor(100000 + Math.random()*900000));
+  fpStage = 'otp';
+  document.getElementById('authTitle').textContent = 'OTP Verify Karein';
+  document.getElementById('authSub').textContent = 'Note: Is demo/offline software mein real SMS gateway connect nahi hai, isliye OTP neeche hi dikhaya gaya hai. Real SMS ke liye ek SMS/OTP provider (jaise Twilio/MSG91) backend se jodna hoga.';
+  document.getElementById('authBody').innerHTML = `
+    <div class="billbox" style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--ink-soft);">Aapka OTP (simulate) hai:</div>
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.1em;">${fpOtp}</div>
+    </div>
+    <label class="f">OTP Daalein<input id="fp_otp_input" placeholder="6 digit OTP"></label>
+    <label class="f">Naya Password<input id="fp_newpass" type="text"></label>
+    <div class="autherr" id="authErr"></div>
+    <button class="btn accent" style="width:100%;margin-top:6px;" onclick="confirmResetOtp()">Password Reset Karein</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px;" onclick="renderAuthScreen()">Cancel</button>
+  `;
+}
+async function confirmResetOtp(){
+  const enteredOtp = document.getElementById('fp_otp_input').value.trim();
+  const newPass = document.getElementById('fp_newpass').value;
+  if(enteredOtp !== fpOtp){
+    document.getElementById('authErr').textContent = 'OTP galat hai.';
+    return;
+  }
+  if(!newPass){
+    document.getElementById('authErr').textContent = 'Naya password daalein.';
+    return;
+  }
+  fpUser.password = newPass;
+  await persist('users');
+  alert('Password reset ho gaya. Ab naye password se login karein.');
+  renderAuthScreen();
+}
+
 function enterApp(){
   document.getElementById('authOverlay').classList.add('hidden');
   applyTheme(settings.theme || 'saffron');
@@ -568,7 +634,7 @@ const NAV_ITEMS = [
   {key:'tables', label:'Tables / KOT', ico:'&#9974;', perm:'tables'},
   {key:'menu', label:'Menu Items', ico:'&#9776;', perm:'menu'},
   {key:'stock', label:'Stock', ico:'&#9670;', perm:'stock'},
-  {key:'rooms', label:'Rooms', ico:'&#8962;', perm:'rooms'},
+  {key:'rooms', label:'Front Office / Rooms', ico:'&#8962;', perm:'rooms'},
   {key:'reports', label:'Sale Reports', ico:'&#9776;', perm:'reports'},
   {key:'settings', label:'Settings', ico:'&#9881;', perm:'settings'},
 ];
@@ -583,7 +649,7 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
-  const titles = {dashboard:'Dashboard', tables:'Tables / KOT', menu:'Menu Items', stock:'Stock Management', rooms:'Rooms / Check-in', reports:'Sale Reports', settings:'Settings'};
+  const titles = {dashboard:'Dashboard', tables:'Tables / KOT', menu:'Menu Items', stock:'Stock Management', rooms:'Front Office - Rooms / Check-in / Check-out', reports:'Sale Reports', settings:'Settings'};
   document.getElementById('viewTitle').textContent = titles[v];
   if(v==='dashboard') renderDashboard();
   if(v==='tables') renderTables();
@@ -700,6 +766,7 @@ function renderUsers(){
     if(editingUserId===u.id){
       return `<tr class="userrow-edit">
         <td>${u.username}</td>
+        <td><input id="eu_mobile" value="${u.mobile||''}" style="width:110px"></td>
         <td>${u.role==='master'?'Master':'Staff'}</td>
         <td colspan="2">
           <div class="permsline">
@@ -721,6 +788,7 @@ function renderUsers(){
       Object.entries(u.permissions).filter(([k,v])=>v && k!=='settings').map(([k])=>k).join(', ') || 'Koi nahi';
     return `<tr>
       <td>${u.username}</td>
+      <td>${u.mobile||'-'}</td>
       <td>${u.role==='master' ? '<span class="pill warn">Master</span>' : '<span class="pill good">Staff</span>'}</td>
       <td style="font-size:12px;">${permsLabel}</td>
       <td>
@@ -728,12 +796,14 @@ function renderUsers(){
         ${u.role!=='master' ? `<button class="btn danger small" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" class="empty-hint">Koi staff ID nahi hai.</td></tr>`;
+  }).join('') || `<tr><td colspan="5" class="empty-hint">Koi staff ID nahi hai.</td></tr>`;
 }
 async function addUser(){
   const uname = document.getElementById('nu_username').value.trim();
+  const mobile = document.getElementById('nu_mobile').value.trim();
   const upass = document.getElementById('nu_password').value;
   if(!uname || !upass){ alert('Username aur password daalein'); return; }
+  if(!mobile || !/^[0-9]{10}$/.test(mobile)){ alert('Sahi 10 digit mobile number daalein (OTP/Forgot Password ke liye zaroori hai)'); return; }
   if(users.some(u=>u.username===uname)){ alert('Ye username pehle se hai'); return; }
   const perms = {
     tables: document.getElementById('nu_tables').checked,
@@ -743,9 +813,9 @@ async function addUser(){
     reports: document.getElementById('nu_reports').checked,
     settings: false
   };
-  users.push({id:uid(), username:uname, password:upass, role:'staff', permissions:perms});
+  users.push({id:uid(), username:uname, mobile, password:upass, role:'staff', permissions:perms});
   await persist('users');
-  document.getElementById('nu_username').value=''; document.getElementById('nu_password').value='';
+  document.getElementById('nu_username').value=''; document.getElementById('nu_mobile').value=''; document.getElementById('nu_password').value='';
   renderUsers();
 }
 async function saveUserEdit(id){
@@ -756,6 +826,8 @@ async function saveUserEdit(id){
   u.permissions.stock = document.getElementById('eu_stock').checked;
   u.permissions.rooms = document.getElementById('eu_rooms').checked;
   u.permissions.reports = document.getElementById('eu_reports').checked;
+  const newMobile = document.getElementById('eu_mobile').value.trim();
+  if(newMobile) u.mobile = newMobile;
   const newPass = document.getElementById('eu_pass').value;
   if(newPass) u.password = newPass;
   editingUserId = null;
@@ -1135,11 +1207,14 @@ function updateBillPreview(){
   const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
   const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
-  const grand = Math.max(0, subtotal+taxAmt-disc);
+  const grandRaw = Math.max(0, subtotal+taxAmt-disc);
+  const grand = Math.round(grandRaw);
+  const roundOff = grand - grandRaw;
   document.getElementById('billPreview').innerHTML = `
     <div class="billrow"><span>Subtotal</span><span>${money(subtotal)}</span></div>
     <div class="billrow"><span>Tax (${taxPct}%)</span><span>${money(taxAmt)}</span></div>
     <div class="billrow"><span>Discount${discType==='pct' ? ' ('+discVal+'%)' : ''}</span><span>-${money(disc)}</span></div>
+    <div class="billrow"><span>Round Off</span><span>${roundOff>=0?'+':''}${roundOff.toFixed(2)}</span></div>
     <div class="billrow grand"><span>Grand Total</span><span>${money(grand)}</span></div>`;
 }
 async function confirmBill(){
@@ -1151,7 +1226,9 @@ async function confirmBill(){
   const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
   const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
-  const grand = Math.max(0, subtotal+taxAmt-disc);
+  const grandRaw = Math.max(0, subtotal+taxAmt-disc);
+  const grand = Math.round(grandRaw);
+  const roundOff = Number((grand - grandRaw).toFixed(2));
   const pay = document.getElementById('bl_pay').value;
 
   const custName = document.getElementById('bl_custname').value.trim();
@@ -1164,7 +1241,8 @@ async function confirmBill(){
     staffName: order.staffName || '',
     customerName: custName, customerPhone: custPhone, customerAddress: custAddr, customerGst: custGst,
     lines: order.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price})),
-    subtotal, taxPct, taxAmt, discountType:discType, discountValue:discVal, discount:disc, grandTotal:grand, payment:pay
+    subtotal, taxPct, taxAmt, discountType:discType, discountValue:discVal, discount:disc,
+    roundOff, grandTotal:grand, payment:pay
   };
   sales.push(sale);
 
@@ -1188,10 +1266,10 @@ async function confirmBill(){
 
 /* ---------------- PRINT ---------------- */
 function printBillReceipt(sale){
-  const win = window.open('', '_blank', 'width=480,height=720');
+  const win = window.open('', '_blank', 'width=480,height=760');
   if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
   const cgst = sale.taxAmt/2, sgst = sale.taxAmt/2, halfPct = (sale.taxPct/2).toFixed(2);
-  const linesHtml = sale.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${l.name}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">${l.price.toFixed(2)}</td><td style="text-align:right">${l.total.toFixed(2)}</td></tr>`).join('');
+  const linesHtml = sale.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${l.name}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">${Math.round(l.price)}</td><td style="text-align:right">${Math.round(l.total)}</td></tr>`).join('');
   win.document.write(`<html><head><title>Invoice ${sale.id}</title>
     <style>
       body{font-family:Arial,Helvetica,sans-serif;padding:20px;font-size:12.5px;color:#111;}
@@ -1236,11 +1314,12 @@ function printBillReceipt(sale){
       <table><thead><tr><th>Sr</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>${linesHtml}</tbody></table>
       <div class="totbox">
-        <div class="totrow"><span>Subtotal</span><span>Rs ${sale.subtotal.toFixed(2)}</span></div>
-        <div class="totrow"><span>CGST (${halfPct}%)</span><span>Rs ${cgst.toFixed(2)}</span></div>
-        <div class="totrow"><span>SGST (${halfPct}%)</span><span>Rs ${sgst.toFixed(2)}</span></div>
-        <div class="totrow"><span>Discount${sale.discountType==='pct' ? ' ('+sale.discountValue+'%)' : ''}</span><span>-Rs ${sale.discount.toFixed(2)}</span></div>
-        <div class="totrow grand"><span>Grand Total</span><span>Rs ${sale.grandTotal.toFixed(2)}</span></div>
+        <div class="totrow"><span>Subtotal</span><span>Rs ${Math.round(sale.subtotal)}</span></div>
+        <div class="totrow"><span>CGST (${halfPct}%)</span><span>Rs ${Math.round(cgst)}</span></div>
+        <div class="totrow"><span>SGST (${halfPct}%)</span><span>Rs ${Math.round(sgst)}</span></div>
+        <div class="totrow"><span>Discount${sale.discountType==='pct' ? ' ('+sale.discountValue+'%)' : ''}</span><span>-Rs ${Math.round(sale.discount)}</span></div>
+        <div class="totrow"><span>Round Off</span><span>${(sale.roundOff>=0?'+':'')+(sale.roundOff||0).toFixed(2)}</span></div>
+        <div class="totrow grand"><span>Grand Total</span><span>Rs ${Math.round(sale.grandTotal)}</span></div>
         <div class="totrow"><span>Payment Mode</span><span>${sale.payment}</span></div>
       </div>
       <div class="footnote">This is a computer generated invoice. Dhanyavaad, fir aayiye!</div>
@@ -1306,7 +1385,9 @@ async function confirmBillEdit(){
   const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
   const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
-  const grand = Math.max(0, subtotal+taxAmt-disc);
+  const grandRaw = Math.max(0, subtotal+taxAmt-disc);
+  const grand = Math.round(grandRaw);
+  const roundOff = Number((grand - grandRaw).toFixed(2));
   const pay = document.getElementById('bl_pay').value;
 
   sale.lines.forEach(old=>{
@@ -1319,7 +1400,7 @@ async function confirmBillEdit(){
   });
 
   sale.lines = editingBillTemp.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price}));
-  sale.subtotal = subtotal; sale.taxPct = taxPct; sale.discountType = discType; sale.discountValue = discVal; sale.discount = disc; sale.taxAmt = taxAmt; sale.grandTotal = grand; sale.payment = pay;
+  sale.subtotal = subtotal; sale.taxPct = taxPct; sale.discountType = discType; sale.discountValue = discVal; sale.discount = disc; sale.taxAmt = taxAmt; sale.roundOff = roundOff; sale.grandTotal = grand; sale.payment = pay;
   sale.customerName = document.getElementById('bl_custname').value.trim();
   sale.customerPhone = document.getElementById('bl_custphone').value.trim();
   sale.customerAddress = document.getElementById('bl_custaddr').value.trim();
@@ -1345,12 +1426,12 @@ async function deleteBill(saleId){
   renderReports(); renderStock();
 }
 
-/* ---------------- ROOMS / CHECK-IN-OUT ---------------- */
+/* ---------------- FRONT OFFICE: ROOMS / CHECK-IN / CHECK-OUT ---------------- */
 async function addRoomPrompt(){
   if(!isMaster()){ alert('Sirf Master ID naya room add kar sakti hai.'); return; }
   const roomNo = prompt('Naye room ka number:');
   if(!roomNo) return;
-  const type = prompt('Room type (e.g. Standard/Deluxe):', 'Standard') || 'Standard';
+  const type = prompt('Room type (e.g. Standard/Deluxe/Suite):', 'Standard') || 'Standard';
   const rate = parseFloat(prompt('Rate per night (Rs):', '1500')) || 0;
   rooms.push({id:uid(), roomNo, type, rate, status:'vacant', currentBookingId:null});
   await persist('rooms');
@@ -1366,9 +1447,32 @@ async function deleteRoom(id){
   await persist('rooms');
   renderRooms();
 }
+function frontOfficeStats(){
+  const total = rooms.length;
+  const occupied = rooms.filter(r=>r.status==='occupied').length;
+  const vacant = total - occupied;
+  const todayCheckins = bookings.filter(b=>b.checkinDate && b.checkinDate.slice(0,10)===todayISO()).length;
+  const todayCheckouts = bookings.filter(b=>b.checkoutDate && b.checkoutDate.slice(0,10)===todayISO()).length;
+  return {total, occupied, vacant, todayCheckins, todayCheckouts};
+}
 function renderRooms(){
   const addBtn = document.getElementById('addRoomBtn');
   if(addBtn) addBtn.style.display = isMaster() ? 'inline-block' : 'none';
+  const st = frontOfficeStats();
+  let statsBox = document.getElementById('foStatsRow');
+  if(!statsBox){
+    statsBox = document.createElement('div');
+    statsBox.className = 'cardrow';
+    statsBox.id = 'foStatsRow';
+    document.getElementById('view-rooms').insertBefore(statsBox, document.getElementById('view-rooms').firstChild);
+  }
+  statsBox.innerHTML = `
+    <div class="stat"><div class="label">Total Rooms</div><div class="value">${st.total}</div></div>
+    <div class="stat"><div class="label">Occupied</div><div class="value">${st.occupied}</div></div>
+    <div class="stat"><div class="label">Khaali (Vacant)</div><div class="value">${st.vacant}</div></div>
+    <div class="stat"><div class="label">Aaj Check-In</div><div class="value">${st.todayCheckins}</div></div>
+    <div class="stat"><div class="label">Aaj Check-Out</div><div class="value">${st.todayCheckouts}</div></div>
+  `;
   const grid = document.getElementById('roomGrid');
   grid.innerHTML = rooms.map(r=>{
     const booking = bookings.find(b=>b.id===r.currentBookingId && b.status==='active');
@@ -1381,6 +1485,29 @@ function renderRooms(){
       <div class="tstatus" style="cursor:pointer;" onclick="openRoomModal('${r.id}')">${r.status==='vacant' ? 'Khaali' : ('Guest: '+(booking?booking.guestName:'-'))}</div>
     </div>`;
   }).join('') || `<div class="empty-hint">Koi room nahi hai. Master ID se "+ Naya Room" se add karein.</div>`;
+
+  let history = document.getElementById('foHistoryPanel');
+  if(!history){
+    history = document.createElement('div');
+    history.className = 'panel';
+    history.id = 'foHistoryPanel';
+    history.style.marginTop = '20px';
+    document.getElementById('view-rooms').appendChild(history);
+  }
+  const recentBookings = [...bookings].reverse().slice(0,20);
+  history.innerHTML = `
+    <h2 class="sectitle">Recent Check-In / Check-Out History</h2>
+    <table class="datatable"><thead><tr><th>Room</th><th>Guest</th><th>Check-In</th><th>Check-Out</th><th>Status</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+      ${recentBookings.map(b=>`<tr>
+        <td>${b.roomNo}</td><td>${b.guestName}</td>
+        <td>${new Date(b.checkinDate).toLocaleString('en-IN')}</td>
+        <td>${b.checkoutDate ? new Date(b.checkoutDate).toLocaleString('en-IN') : '-'}</td>
+        <td>${b.status==='active' ? '<span class="pill warn">Staying</span>' : '<span class="pill good">Checked Out</span>'}</td>
+        <td class="num">${b.grandTotal!==undefined ? money(b.grandTotal) : '-'}</td>
+      </tr>`).join('') || '<tr><td colspan="6" class="empty-hint">Koi record nahi hai.</td></tr>'}
+    </tbody></table>
+  `;
 }
 function closeRoomModal(){
   document.getElementById('roomOverlay').classList.remove('active');
@@ -1395,8 +1522,11 @@ function openRoomModal(roomId){
     document.getElementById('roomModalBody').innerHTML = `
       <label class="f">Guest Naam<input id="ci_name" style="width:100%"></label>
       <label class="f">Guest Number<input id="ci_phone" style="width:100%"></label>
+      <label class="f">Guest ID Proof Type<select id="ci_idtype" style="width:100%"><option>Aadhaar</option><option>PAN</option><option>Driving License</option><option>Passport</option><option>Voter ID</option><option>Other</option></select></label>
+      <label class="f">Guest ID Proof Number<input id="ci_idno" style="width:100%"></label>
       <label class="f">Guest Address<input id="ci_addr" style="width:100%"></label>
       <label class="f">Guest GST No (agar ho)<input id="ci_gst" style="width:100%"></label>
+      <label class="f">No. of Guests<input id="ci_pax" type="number" value="1" style="width:100%"></label>
       <label class="f">Rate Per Night (Rs)<input id="ci_rate" type="number" value="${r.rate}" style="width:100%"></label>
       <button class="btn accent" style="width:100%;margin-top:12px;" onclick="confirmCheckin('${r.id}')">Check-In Karein</button>
     `;
@@ -1410,14 +1540,17 @@ function openRoomModal(roomId){
       <div class="billbox">
         <div><b>Guest:</b> ${booking.guestName}</div>
         ${booking.guestPhone ? `<div><b>Phone:</b> ${booking.guestPhone}</div>` : ''}
+        ${booking.idType ? `<div><b>ID Proof:</b> ${booking.idType} - ${booking.idNo||''}</div>` : ''}
         ${booking.guestAddress ? `<div><b>Address:</b> ${booking.guestAddress}</div>` : ''}
         ${booking.guestGst ? `<div><b>GST:</b> ${booking.guestGst}</div>` : ''}
+        ${booking.pax ? `<div><b>Guests:</b> ${booking.pax}</div>` : ''}
         <div style="margin-top:8px;"><b>Check-in:</b> ${new Date(booking.checkinDate).toLocaleString('en-IN')}</div>
         <div><b>Nights So Far:</b> ${nights}</div>
         <div><b>Rate/Night:</b> ${money(booking.ratePerNight)}</div>
         <div style="margin-top:6px;font-weight:700;">Estimated Room Charge: ${money(roomTotal)}</div>
       </div>
-      <button class="btn accent" style="width:100%;margin-top:12px;" onclick="openCheckoutBilling('${booking.id}')">Check-Out &amp; Bill Banayein</button>
+      <button class="btn ghost" style="width:100%;margin-top:10px;" onclick="printRegistrationCard('${booking.id}')">Guest Registration Card Print Karein</button>
+      <button class="btn accent" style="width:100%;margin-top:8px;" onclick="openCheckoutBilling('${booking.id}')">Check-Out &amp; Bill Banayein</button>
     `;
   }
 }
@@ -1427,14 +1560,45 @@ async function confirmCheckin(roomId){
   const name = document.getElementById('ci_name').value.trim();
   if(!name){ alert('Guest ka naam daalein'); return; }
   const phone = document.getElementById('ci_phone').value.trim();
+  const idType = document.getElementById('ci_idtype').value;
+  const idNo = document.getElementById('ci_idno').value.trim();
   const addr = document.getElementById('ci_addr').value.trim();
   const gst = document.getElementById('ci_gst').value.trim();
+  const pax = parseInt(document.getElementById('ci_pax').value) || 1;
   const rate = parseFloat(document.getElementById('ci_rate').value) || r.rate;
-  const booking = {id:uid(), roomId:r.id, roomNo:r.roomNo, guestName:name, guestPhone:phone, guestAddress:addr, guestGst:gst, checkinDate:new Date().toISOString(), ratePerNight:rate, status:'active', checkoutDate:null};
+  const booking = {id:uid(), roomId:r.id, roomNo:r.roomNo, guestName:name, guestPhone:phone, idType, idNo, guestAddress:addr, guestGst:gst, pax, checkinDate:new Date().toISOString(), ratePerNight:rate, status:'active', checkoutDate:null};
   bookings.push(booking);
   r.status='occupied'; r.currentBookingId=booking.id;
   await persist('bookings'); await persist('rooms');
   closeRoomModal();
+}
+function printRegistrationCard(bookingId){
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  const win = window.open('', '_blank', 'width=480,height=680');
+  if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
+  win.document.write(`<html><head><title>Guest Registration - Room ${booking.roomNo}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:22px;font-size:13px;color:#111;}
+      .invhead{text-align:center;border-bottom:2px solid #222;padding-bottom:10px;margin-bottom:14px;}
+      .invhead h2{margin:0;font-size:19px;}
+      .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #ccc;}
+      .row b{color:#555;}
+    </style></head>
+    <body>
+      <div class="invhead"><h2>${settings.hotelName||'Hotel'}</h2><div>Guest Registration Card</div></div>
+      <div class="row"><b>Room No</b><span>${booking.roomNo}</span></div>
+      <div class="row"><b>Guest Name</b><span>${booking.guestName}</span></div>
+      <div class="row"><b>Phone</b><span>${booking.guestPhone||'-'}</span></div>
+      <div class="row"><b>ID Proof</b><span>${(booking.idType||'-')+' '+(booking.idNo||'')}</span></div>
+      <div class="row"><b>Address</b><span>${booking.guestAddress||'-'}</span></div>
+      <div class="row"><b>No. of Guests</b><span>${booking.pax||1}</span></div>
+      <div class="row"><b>Check-In</b><span>${new Date(booking.checkinDate).toLocaleString('en-IN')}</span></div>
+      <div class="row"><b>Rate / Night</b><span>Rs ${Math.round(booking.ratePerNight)}</span></div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
 }
 function openCheckoutBilling(bookingId){
   const booking = bookings.find(b=>b.id===bookingId);
@@ -1467,11 +1631,14 @@ function updateRoomBillPreview(roomTotal){
   const discVal = parseFloat(document.getElementById('rb_discval').value)||0;
   const disc = discType==='pct' ? roomTotal*discVal/100 : discVal;
   const taxAmt = roomTotal*taxPct/100;
-  const grand = Math.max(0, roomTotal+taxAmt-disc);
+  const grandRaw = Math.max(0, roomTotal+taxAmt-disc);
+  const grand = Math.round(grandRaw);
+  const roundOff = grand - grandRaw;
   document.getElementById('roomBillPreview').innerHTML = `
     <div class="billrow"><span>Room Charges</span><span>${money(roomTotal)}</span></div>
     <div class="billrow"><span>Tax (${taxPct}%)</span><span>${money(taxAmt)}</span></div>
     <div class="billrow"><span>Discount${discType==='pct'?' ('+discVal+'%)':''}</span><span>-${money(disc)}</span></div>
+    <div class="billrow"><span>Round Off</span><span>${roundOff>=0?'+':''}${roundOff.toFixed(2)}</span></div>
     <div class="billrow grand"><span>Grand Total</span><span>${money(grand)}</span></div>`;
 }
 async function confirmCheckout(bookingId, nights, roomTotal){
@@ -1482,14 +1649,16 @@ async function confirmCheckout(bookingId, nights, roomTotal){
   const discVal = parseFloat(document.getElementById('rb_discval').value)||0;
   const disc = discType==='pct' ? roomTotal*discVal/100 : discVal;
   const taxAmt = roomTotal*taxPct/100;
-  const grand = Math.max(0, roomTotal+taxAmt-disc);
+  const grandRaw = Math.max(0, roomTotal+taxAmt-disc);
+  const grand = Math.round(grandRaw);
+  const roundOff = Number((grand - grandRaw).toFixed(2));
   const pay = document.getElementById('rb_pay').value;
 
   booking.status='closed';
   booking.checkoutDate = new Date().toISOString();
   booking.nights = nights; booking.roomTotal = roomTotal; booking.taxPct=taxPct;
   booking.taxAmt=taxAmt; booking.discountType=discType; booking.discountValue=discVal; booking.discount=disc;
-  booking.grandTotal=grand; booking.payment=pay;
+  booking.roundOff=roundOff; booking.grandTotal=grand; booking.payment=pay;
 
   const r = rooms.find(x=>x.id===booking.roomId);
   if(r){ r.status='vacant'; r.currentBookingId=null; }
@@ -1500,7 +1669,7 @@ async function confirmCheckout(bookingId, nights, roomTotal){
   if(doPrint) printRoomBill(booking);
 }
 function printRoomBill(booking){
-  const win = window.open('', '_blank', 'width=480,height=720');
+  const win = window.open('', '_blank', 'width=480,height=760');
   if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
   win.document.write(`<html><head><title>Room Bill ${booking.roomNo}</title>
     <style>
@@ -1531,10 +1700,11 @@ function printRoomBill(booking){
         ${booking.guestGst?('GSTIN: '+booking.guestGst):''}
       </div>
       <div class="totbox">
-        <div class="totrow"><span>Room Charges (${booking.nights} nights x Rs ${booking.ratePerNight})</span><span>Rs ${booking.roomTotal.toFixed(2)}</span></div>
-        <div class="totrow"><span>Tax (${booking.taxPct}%)</span><span>Rs ${booking.taxAmt.toFixed(2)}</span></div>
-        <div class="totrow"><span>Discount</span><span>-Rs ${booking.discount.toFixed(2)}</span></div>
-        <div class="totrow grand"><span>Grand Total</span><span>Rs ${booking.grandTotal.toFixed(2)}</span></div>
+        <div class="totrow"><span>Room Charges (${booking.nights} nights x Rs ${Math.round(booking.ratePerNight)})</span><span>Rs ${Math.round(booking.roomTotal)}</span></div>
+        <div class="totrow"><span>Tax (${booking.taxPct}%)</span><span>Rs ${Math.round(booking.taxAmt)}</span></div>
+        <div class="totrow"><span>Discount</span><span>-Rs ${Math.round(booking.discount)}</span></div>
+        <div class="totrow"><span>Round Off</span><span>${(booking.roundOff>=0?'+':'')+(booking.roundOff||0).toFixed(2)}</span></div>
+        <div class="totrow grand"><span>Grand Total</span><span>Rs ${Math.round(booking.grandTotal)}</span></div>
       </div>
       <div class="footnote">Payment Mode: ${booking.payment} &nbsp;|&nbsp; Thank you for staying with us!</div>
     </body></html>`);
@@ -1609,6 +1779,7 @@ function renderDashboard(){
 }
 
 /* ---------------- REPORTS ---------------- */
+let reportTab = 'item';
 function setReportRange(mode){
   reportRangeMode = mode;
   document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('accent', b.dataset.range===mode));
@@ -1617,6 +1788,10 @@ function setReportRange(mode){
   else if(mode==='monthly'){ reportFrom = now.toISOString().slice(0,8)+'01'; reportTo = todayISO(); }
   else if(mode==='yearly'){ reportFrom = now.getFullYear()+'-01-01'; reportTo = todayISO(); }
   else if(mode==='custom'){ reportFrom = document.getElementById('rp_from').value || todayISO(); reportTo = document.getElementById('rp_to').value || todayISO(); }
+  renderReports();
+}
+function setReportTab(tab){
+  reportTab = tab;
   renderReports();
 }
 function filteredSales(){
@@ -1628,12 +1803,43 @@ function renderReports(){
   const list = filteredSales();
   const revenue = list.reduce((s,x)=>s+x.grandTotal,0);
   const avg = list.length ? revenue/list.length : 0;
+  const totalTax = list.reduce((s,x)=>s+(x.taxAmt||0),0);
+  const totalDisc = list.reduce((s,x)=>s+(x.discount||0),0);
 
   document.getElementById('reportStats').innerHTML = `
     <div class="stat"><div class="label">Total Revenue</div><div class="value">${money(revenue)}</div><div class="sub">${reportFrom} se ${reportTo}</div></div>
     <div class="stat"><div class="label">Total Bills</div><div class="value">${list.length}</div></div>
     <div class="stat"><div class="label">Average Bill Value</div><div class="value">${money(avg)}</div></div>
+    <div class="stat"><div class="label">Total Tax Collected</div><div class="value">${money(totalTax)}</div></div>
+    <div class="stat"><div class="label">Total Discount</div><div class="value">${money(totalDisc)}</div></div>
   `;
+
+  let tabBar = document.getElementById('reportTabBar');
+  if(!tabBar){
+    tabBar = document.createElement('div');
+    tabBar.id = 'reportTabBar';
+    tabBar.className = 'cat-tabs';
+    tabBar.style.marginBottom = '14px';
+    const statsEl = document.getElementById('reportStats');
+    statsEl.parentNode.insertBefore(tabBar, statsEl.nextSibling);
+  }
+  const tabs = [
+    {key:'item', label:'Item-wise Report'},
+    {key:'bill', label:'Bill-wise Report'},
+    {key:'gst', label:'GST Report'},
+    {key:'customer', label:'Customer Report'},
+  ];
+  tabBar.innerHTML = tabs.map(t=>`<div class="cat-chip ${reportTab===t.key?'active':''}" onclick="setReportTab('${t.key}')">${t.label}</div>`).join('');
+
+  const oldPanels = ['reportTable','billsTable'].map(id=>document.getElementById(id)?.closest('.panel')).filter(Boolean);
+  oldPanels.forEach(p=> p.style.display='none');
+
+  let dynPanel = document.getElementById('reportDynPanel');
+  if(!dynPanel){
+    dynPanel = document.createElement('div');
+    dynPanel.id = 'reportDynPanel';
+    tabBar.parentNode.insertBefore(dynPanel, tabBar.nextSibling);
+  }
 
   const agg = {};
   list.forEach(s=> s.lines.forEach(l=>{
@@ -1641,24 +1847,70 @@ function renderReports(){
     agg[l.itemId].qty += l.qty; agg[l.itemId].rev += l.total;
   }));
   const arr = Object.values(agg).sort((a,b)=>b.rev-a.rev);
-  const maxRev = arr.length ? arr[0].rev : 1;
-  document.querySelector('#reportTable tbody').innerHTML = arr.map(a=>`
-    <tr><td>${a.name}</td><td class="num">${a.qty}</td><td class="num">${money(a.rev)}</td>
-    <td><div class="barwrap"><div class="barfill" style="width:${(a.rev/maxRev*100).toFixed(0)}%"></div></div></td></tr>`).join('')
-    || `<tr><td colspan="4" class="empty-hint">Is range mein koi sale nahi hai.</td></tr>`;
-
-  document.querySelector('#billsTable tbody').innerHTML = [...list].reverse().map(s=>`
-    <tr><td>${s.id}</td><td>${new Date(s.date).toLocaleString('en-IN')}</td><td>${s.tableName}</td>
-    <td>${s.staffName||'-'}</td><td>${s.customerName||'-'}</td>
-    <td class="num">${money(s.grandTotal)}</td><td>${s.payment}</td>
-    <td>
-      <button class="btn ghost small" onclick="printSaleById('${s.id}')">Print</button>
-      ${currentUser && currentUser.role==='master' ? `<button class="btn ghost small" onclick="openBillEditor('${s.id}')">Edit</button> <button class="btn danger small" onclick="deleteBill('${s.id}')">Delete</button>` : ''}
-    </td></tr>`).join('')
-    || `<tr><td colspan="8" class="empty-hint">Koi bill nahi mila.</td></tr>`;
-
   window._currentReportAgg = arr;
   window._currentReportBills = list;
+
+  if(reportTab==='item'){
+    const maxRev = arr.length ? arr[0].rev : 1;
+    dynPanel.innerHTML = `<div class="panel"><h2 class="sectitle">Item-wise Sale Report</h2>
+      <table class="datatable"><thead><tr><th>Item</th><th class="num">Qty Sold</th><th class="num">Revenue</th><th style="width:120px;">Share</th></tr></thead>
+      <tbody>${arr.map(a=>`<tr><td>${a.name}</td><td class="num">${a.qty}</td><td class="num">${money(a.rev)}</td>
+        <td><div class="barwrap"><div class="barfill" style="width:${(a.rev/maxRev*100).toFixed(0)}%"></div></div></td></tr>`).join('') || `<tr><td colspan="4" class="empty-hint">Is range mein koi sale nahi hai.</td></tr>`}</tbody></table>
+    </div>`;
+  } else if(reportTab==='bill'){
+    dynPanel.innerHTML = `<div class="panel"><h2 class="sectitle">Bill-wise Report</h2>
+      <table class="datatable"><thead><tr><th>Sr.No</th><th>Bill#</th><th>Date</th><th>Time</th><th>Table</th><th class="num">Gross Amount</th><th class="num">Taxable Amount</th><th class="num">Discount</th><th class="num">Round Off</th><th>User</th><th>Payment Mode</th><th style="width:140px;">Actions</th></tr></thead>
+      <tbody>${[...list].reverse().map((s,idx)=>`<tr>
+        <td>${list.length-idx}</td>
+        <td>${s.id}</td>
+        <td>${new Date(s.date).toLocaleDateString('en-IN')}</td>
+        <td>${new Date(s.date).toLocaleTimeString('en-IN')}</td>
+        <td>${s.tableName}</td>
+        <td class="num">${money(s.subtotal + (s.taxAmt||0))}</td>
+        <td class="num">${money(s.subtotal)}</td>
+        <td class="num">${money(s.discount)}</td>
+        <td class="num">${(s.roundOff!==undefined ? (s.roundOff>=0?'+':'')+s.roundOff.toFixed(2) : '0.00')}</td>
+        <td>${s.staffName||'-'}</td>
+        <td>${s.payment}</td>
+        <td>
+          <button class="btn ghost small" onclick="printSaleById('${s.id}')">Print</button>
+          ${currentUser && currentUser.role==='master' ? `<button class="btn ghost small" onclick="openBillEditor('${s.id}')">Edit</button> <button class="btn danger small" onclick="deleteBill('${s.id}')">Delete</button>` : ''}
+        </td>
+      </tr>`).join('') || `<tr><td colspan="12" class="empty-hint">Koi bill nahi mila.</td></tr>`}</tbody></table>
+    </div>`;
+  } else if(reportTab==='gst'){
+    const gstRows = list.map(s=>{
+      const cgst = (s.taxAmt||0)/2, sgst = (s.taxAmt||0)/2;
+      return {id:s.id, date:s.date, taxable:s.subtotal, taxPct:s.taxPct, cgst, sgst, totalTax:s.taxAmt||0, grand:s.grandTotal, custGst:s.customerGst||'-'};
+    });
+    const totTaxable = gstRows.reduce((a,r)=>a+r.taxable,0);
+    const totCgst = gstRows.reduce((a,r)=>a+r.cgst,0);
+    const totSgst = gstRows.reduce((a,r)=>a+r.sgst,0);
+    const totTax = gstRows.reduce((a,r)=>a+r.totalTax,0);
+    dynPanel.innerHTML = `<div class="panel"><h2 class="sectitle">GST Report (CGST + SGST)</h2>
+      <table class="datatable"><thead><tr><th>Bill#</th><th>Date</th><th>Customer GSTIN</th><th class="num">Taxable Amount</th><th>Tax %</th><th class="num">CGST</th><th class="num">SGST</th><th class="num">Total Tax</th><th class="num">Bill Total</th></tr></thead>
+      <tbody>${gstRows.map(r=>`<tr><td>${r.id}</td><td>${new Date(r.date).toLocaleDateString('en-IN')}</td><td>${r.custGst}</td>
+        <td class="num">${money(r.taxable)}</td><td>${r.taxPct}%</td><td class="num">${money(r.cgst)}</td><td class="num">${money(r.sgst)}</td>
+        <td class="num">${money(r.totalTax)}</td><td class="num">${money(r.grand)}</td></tr>`).join('') || `<tr><td colspan="9" class="empty-hint">Is range mein koi bill nahi hai.</td></tr>`}
+      </tbody>
+      <tfoot><tr style="font-weight:700;"><td colspan="3">Total</td><td class="num">${money(totTaxable)}</td><td></td><td class="num">${money(totCgst)}</td><td class="num">${money(totSgst)}</td><td class="num">${money(totTax)}</td><td></td></tr></tfoot>
+      </table>
+    </div>`;
+  } else if(reportTab==='customer'){
+    const custAgg = {};
+    list.forEach(s=>{
+      const key = (s.customerPhone && s.customerPhone.trim()) || (s.customerName && s.customerName.trim()) || 'Walk-in / Unknown';
+      if(!custAgg[key]) custAgg[key] = {name:s.customerName||'-', phone:s.customerPhone||'-', gst:s.customerGst||'-', visits:0, total:0, lastVisit:s.date};
+      custAgg[key].visits += 1;
+      custAgg[key].total += s.grandTotal;
+      if(new Date(s.date) > new Date(custAgg[key].lastVisit)) custAgg[key].lastVisit = s.date;
+    });
+    const custArr = Object.values(custAgg).sort((a,b)=>b.total-a.total);
+    dynPanel.innerHTML = `<div class="panel"><h2 class="sectitle">Customer Report</h2>
+      <table class="datatable"><thead><tr><th>Customer Name</th><th>Phone</th><th>GSTIN</th><th class="num">Visits</th><th class="num">Total Spend</th><th>Last Visit</th></tr></thead>
+      <tbody>${custArr.map(c=>`<tr><td>${c.name}</td><td>${c.phone}</td><td>${c.gst}</td><td class="num">${c.visits}</td><td class="num">${money(c.total)}</td><td>${new Date(c.lastVisit).toLocaleString('en-IN')}</td></tr>`).join('') || `<tr><td colspan="6" class="empty-hint">Is range mein koi customer data nahi hai.</td></tr>`}</tbody></table>
+    </div>`;
+  }
 }
 function exportReportExcel(){
   const arr = window._currentReportAgg || [];
@@ -1667,14 +1919,38 @@ function exportReportExcel(){
   const wb = XLSX.utils.book_new();
 
   const itemRows = [['Item','Qty Sold','Revenue']];
-  arr.forEach(a=> itemRows.push([a.name, a.qty, Number(a.rev.toFixed(2))]));
+  arr.forEach(a=> itemRows.push([a.name, a.qty, Math.round(a.rev)]));
   const ws1 = XLSX.utils.aoa_to_sheet(itemRows);
   XLSX.utils.book_append_sheet(wb, ws1, 'Item-wise Report');
 
-  const billRows = [['Bill No','Date','Table','Staff','Customer','Amount','Payment']];
-  list.forEach(s=> billRows.push([s.id, new Date(s.date).toLocaleString('en-IN'), s.tableName, s.staffName||'', s.customerName||'', Number(s.grandTotal.toFixed(2)), s.payment]));
+  const billRows = [['Sr.No','Bill No','Date','Time','Table','Gross Amount','Taxable Amount','Discount','Round Off','User','Payment Mode']];
+  [...list].reverse().forEach((s,idx)=> billRows.push([
+    list.length-idx, s.id, new Date(s.date).toLocaleDateString('en-IN'), new Date(s.date).toLocaleTimeString('en-IN'),
+    s.tableName, Math.round(s.subtotal+(s.taxAmt||0)), Math.round(s.subtotal), Math.round(s.discount),
+    s.roundOff!==undefined ? s.roundOff.toFixed(2) : '0.00', s.staffName||'', s.payment
+  ]));
   const ws2 = XLSX.utils.aoa_to_sheet(billRows);
-  XLSX.utils.book_append_sheet(wb, ws2, 'Bills');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Bill-wise Report');
+
+  const gstRows = [['Bill No','Date','Customer GSTIN','Taxable Amount','Tax %','CGST','SGST','Total Tax','Bill Total']];
+  list.forEach(s=>{
+    const cgst = (s.taxAmt||0)/2, sgst=(s.taxAmt||0)/2;
+    gstRows.push([s.id, new Date(s.date).toLocaleDateString('en-IN'), s.customerGst||'', Math.round(s.subtotal), s.taxPct, Math.round(cgst), Math.round(sgst), Math.round(s.taxAmt||0), Math.round(s.grandTotal)]);
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(gstRows);
+  XLSX.utils.book_append_sheet(wb, ws3, 'GST Report');
+
+  const custAgg = {};
+  list.forEach(s=>{
+    const key = (s.customerPhone && s.customerPhone.trim()) || (s.customerName && s.customerName.trim()) || 'Walk-in / Unknown';
+    if(!custAgg[key]) custAgg[key] = {name:s.customerName||'-', phone:s.customerPhone||'-', gst:s.customerGst||'-', visits:0, total:0, lastVisit:s.date};
+    custAgg[key].visits += 1; custAgg[key].total += s.grandTotal;
+    if(new Date(s.date) > new Date(custAgg[key].lastVisit)) custAgg[key].lastVisit = s.date;
+  });
+  const custRows = [['Customer Name','Phone','GSTIN','Visits','Total Spend','Last Visit']];
+  Object.values(custAgg).sort((a,b)=>b.total-a.total).forEach(c=> custRows.push([c.name, c.phone, c.gst, c.visits, Math.round(c.total), new Date(c.lastVisit).toLocaleString('en-IN')]));
+  const ws4 = XLSX.utils.aoa_to_sheet(custRows);
+  XLSX.utils.book_append_sheet(wb, ws4, 'Customer Report');
 
   XLSX.writeFile(wb, `sale-report-${reportFrom}-to-${reportTo}.xlsx`);
 }
@@ -1684,15 +1960,15 @@ function printReportPDF(){
   const revenue = list.reduce((s,x)=>s+x.grandTotal,0);
   const win = window.open('', '_blank', 'width=850,height=900');
   if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
-  const itemRows = arr.map((a,i)=>`<tr><td>${i+1}</td><td>${a.name}</td><td style="text-align:right">${a.qty}</td><td style="text-align:right">${a.rev.toFixed(2)}</td></tr>`).join('');
-  const billRows = list.map(s=>`<tr><td>${s.id}</td><td>${new Date(s.date).toLocaleString('en-IN')}</td><td>${s.tableName}</td><td>${s.staffName||'-'}</td><td>${s.customerName||'-'}</td><td style="text-align:right">${s.grandTotal.toFixed(2)}</td><td>${s.payment}</td></tr>`).join('');
+  const itemRows = arr.map((a,i)=>`<tr><td>${i+1}</td><td>${a.name}</td><td style="text-align:right">${a.qty}</td><td style="text-align:right">${Math.round(a.rev)}</td></tr>`).join('');
+  const billRows = [...list].reverse().map((s,idx)=>`<tr><td>${list.length-idx}</td><td>${s.id}</td><td>${new Date(s.date).toLocaleDateString('en-IN')}</td><td>${new Date(s.date).toLocaleTimeString('en-IN')}</td><td>${s.tableName}</td><td style="text-align:right">${Math.round(s.subtotal+(s.taxAmt||0))}</td><td style="text-align:right">${Math.round(s.subtotal)}</td><td style="text-align:right">${Math.round(s.discount)}</td><td style="text-align:right">${s.roundOff!==undefined?s.roundOff.toFixed(2):'0.00'}</td><td>${s.staffName||'-'}</td><td>${s.payment}</td></tr>`).join('');
   win.document.write(`<html><head><title>Sale Report ${reportFrom} to ${reportTo}</title>
     <style>
       body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111;}
       h1{font-size:18px;margin:0;}
       .sub{color:#555;font-size:12px;margin-bottom:14px;}
       table{width:100%;border-collapse:collapse;margin-bottom:22px;}
-      th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;}
+      th,td{border:1px solid #ccc;padding:6px 8px;font-size:11px;}
       th{background:#f2f2f2;text-align:left;}
       h3{font-size:14px;border-bottom:2px solid #333;padding-bottom:4px;}
       .summary{display:flex;gap:24px;margin-bottom:18px;}
@@ -1704,13 +1980,13 @@ function printReportPDF(){
       <div class="sub">${settings.gstNo?('GSTIN: '+settings.gstNo+' | '):''}${settings.address||''} ${settings.phone?(' | Ph: '+settings.phone):''}</div>
       <div class="sub">Sale Report: ${reportFrom} se ${reportTo}</div>
       <div class="summary">
-        <div>Total Revenue<b>Rs ${revenue.toFixed(2)}</b></div>
+        <div>Total Revenue<b>Rs ${Math.round(revenue)}</b></div>
         <div>Total Bills<b>${list.length}</b></div>
       </div>
       <h3>Item-wise Sale</h3>
       <table><thead><tr><th>#</th><th>Item</th><th>Qty Sold</th><th>Revenue (Rs)</th></tr></thead><tbody>${itemRows||'<tr><td colspan=4>Koi data nahi</td></tr>'}</tbody></table>
-      <h3>Sabhi Bills</h3>
-      <table><thead><tr><th>Bill #</th><th>Date</th><th>Table</th><th>Staff</th><th>Customer</th><th>Amount (Rs)</th><th>Payment</th></tr></thead><tbody>${billRows||'<tr><td colspan=7>Koi bill nahi</td></tr>'}</tbody></table>
+      <h3>Bill-wise Report</h3>
+      <table><thead><tr><th>Sr</th><th>Bill#</th><th>Date</th><th>Time</th><th>Table</th><th>Gross</th><th>Taxable</th><th>Discount</th><th>Round Off</th><th>User</th><th>Payment</th></tr></thead><tbody>${billRows||'<tr><td colspan=11>Koi bill nahi</td></tr>'}</tbody></table>
     </body></html>`);
   win.document.close();
   win.focus();
