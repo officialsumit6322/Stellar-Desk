@@ -187,6 +187,13 @@
   <div class="content">
 
     <section class="view" id="view-dashboard">
+      <div class="panel" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2 class="sectitle" style="margin-bottom:2px;">Point of Sale</h2>
+          <div style="font-size:12.5px;color:var(--ink-soft);">Bina table select kiye, seedha counter/takeaway customer ka bill banayein</div>
+        </div>
+        <button class="btn accent" onclick="quickPOSBill()">+ Quick Bill (POS)</button>
+      </div>
       <div class="cardrow" id="dashStats"></div>
       <div class="panel">
         <h2 class="sectitle">Aaj ke Top Bikne Wale Items</h2>
@@ -251,6 +258,17 @@
       </div>
     </section>
 
+    <section class="view" id="view-rooms">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;gap:14px;font-size:13px;color:var(--ink-soft);">
+          <span>&#9679; <span style="color:var(--good)">Khaali</span></span>
+          <span>&#9679; <span style="color:var(--accent-deep)">Occupied</span></span>
+        </div>
+        <button class="btn ghost small" id="addRoomBtn" onclick="addRoomPrompt()">+ Naya Room</button>
+      </div>
+      <div class="tablegrid" id="roomGrid"></div>
+    </section>
+
     <section class="view" id="view-reports">
       <div class="report-filterbar">
         <button class="btn ghost small" data-range="daily" onclick="setReportRange('daily')">Daily</button>
@@ -276,18 +294,36 @@
 
     <section class="view" id="view-settings">
       <div class="panel">
-        <h2 class="sectitle">Hotel Ki Jaankari</h2>
+        <h2 class="sectitle">Hotel Ki Jaankari (Bill Header Ke Liye)</h2>
         <div class="formgrid">
           <label class="f">Hotel / Restaurant Ka Naam<input id="set_name"></label>
           <label class="f">GST Number<input id="set_gst" placeholder="e.g. 22AAAAA0000A1Z5"></label>
           <label class="f">Address<input id="set_addr"></label>
           <label class="f">Phone<input id="set_phone"></label>
         </div>
+        <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <label class="f" style="margin-bottom:6px;">Hotel Logo (Bill Par Print Hoga)</label>
+            <input type="file" accept="image/*" onchange="uploadLogo(this)">
+          </div>
+          <div id="logoPreviewBox" style="display:none;">
+            <img id="logoPreview" style="height:60px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#fff;">
+            <button class="btn danger small" style="margin-left:8px;" onclick="removeLogo()">Logo Hatayein</button>
+          </div>
+        </div>
         <button class="btn accent" style="margin-top:14px;" onclick="saveBusinessInfo()">Save Karein</button>
       </div>
       <div class="panel">
         <h2 class="sectitle">Theme Chunein</h2>
         <div class="theme-row" id="themeRow"></div>
+      </div>
+      <div class="panel" id="backupPanel">
+        <h2 class="sectitle">Data Backup / Dusre Computer Pe Transfer</h2>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">Ye software is browser/computer mein hi data save karta hai. Dusre computer pe wahi data lejane ke liye: yahan se poora data download karein, phir dusre computer par ye file "Import" kar dein.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn accent" onclick="exportAllData()">Poora Data Download Karein</button>
+          <label class="btn ghost" style="cursor:pointer;">Doosre PC Ka Data Import Karein<input type="file" accept=".json" style="display:none" onchange="importAllDataFile(this)"></label>
+        </div>
       </div>
       <div class="panel" id="userMgmtPanel">
         <h2 class="sectitle">User / Staff ID Management</h2>
@@ -300,6 +336,7 @@
           <label class="chk"><input type="checkbox" id="nu_tables" checked> Tables/KOT</label>
           <label class="chk"><input type="checkbox" id="nu_menu" checked> Menu Items</label>
           <label class="chk"><input type="checkbox" id="nu_stock" checked> Stock</label>
+          <label class="chk"><input type="checkbox" id="nu_rooms"> Rooms</label>
           <label class="chk"><input type="checkbox" id="nu_reports"> Sale Reports</label>
         </div>
         <button class="btn accent" onclick="addUser()">+ Naya Staff ID Add Karein</button>
@@ -335,10 +372,22 @@
   </div>
 </div>
 
+<div class="overlay" id="roomOverlay">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-head">
+      <h3 id="roomModalTitle">Room</h3>
+      <button class="modal-close" onclick="closeRoomModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="roomModalBody"></div>
+  </div>
+</div>
+
 <script>
 /* ---------------- STATE ---------------- */
 let items = [], tables = [], orders = [], sales = [], stockMoves = [];
 let users = [], settings = null;
+let rooms = [], bookings = [];
+let editingRoomId = null;
 let versions = {};
 let currentUser = null;
 let currentOrderId = null;
@@ -351,7 +400,8 @@ let reportFrom = null, reportTo = null;
 
 const KEYS = {
   items:'hms_items', tables:'hms_tables', orders:'hms_orders', sales:'hms_sales',
-  stockMoves:'hms_stock_moves', users:'hms_users', settings:'hms_settings'
+  stockMoves:'hms_stock_moves', users:'hms_users', settings:'hms_settings',
+  rooms:'hms_rooms', bookings:'hms_bookings'
 };
 
 const THEMES = {
@@ -362,6 +412,7 @@ const THEMES = {
   midnight:{name:'Midnight Dark', bg:'#161A20', paper:'#1F252E', ink:'#EDEFF3', inkSoft:'#A8B0BE', line:'#333B47', lineSoft:'#2A303A', accent:'#E0932E', accentDeep:'#F2A94A', accentBg:'#3A2B14', sidebar:'#0D1015', sidebarSoft:'#8FA396'}
 };
 
+function isMaster(){ return !!(currentUser && currentUser.role==='master'); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function money(n){ return 'Rs ' + (Number(n)||0).toFixed(2); }
 function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
@@ -406,6 +457,7 @@ async function loadState(){
     {id:uid(),name:'Gulab Jamun',cat:'Dessert',price:60,unit:'plate',stock:20,reorder:5},
   ];
   const seedTables = [1,2,3,4,5,6].map(n=>({id:uid(),name:'Table '+n,status:'free',orderId:null}));
+  const seedRooms = [101,102,103,201,202].map(n=>({id:uid(),roomNo:String(n),type:'Standard',rate:1500,status:'vacant',currentBookingId:null}));
 
   async function loadOne(name, key, seed){
     try{
@@ -424,11 +476,13 @@ async function loadState(){
   sales = await loadOne('sales', KEYS.sales, []);
   stockMoves = await loadOne('stockMoves', KEYS.stockMoves, []);
   users = await loadOne('users', KEYS.users, []);
-  settings = await loadOne('settings', KEYS.settings, {hotelName:'', gstNo:'', address:'', phone:'', theme:'saffron'});
+  settings = await loadOne('settings', KEYS.settings, {hotelName:'', gstNo:'', address:'', phone:'', theme:'saffron', logo:''});
+  rooms = await loadOne('rooms', KEYS.rooms, seedRooms);
+  bookings = await loadOne('bookings', KEYS.bookings, []);
 }
 
 async function persist(key){
-  const map = {items, tables, orders, sales, stockMoves, users, settings};
+  const map = {items, tables, orders, sales, stockMoves, users, settings, rooms, bookings};
   try{
     const v = await storeSet(KEYS[key], JSON.stringify(map[key]));
     versions[key] = v;
@@ -472,7 +526,7 @@ async function submitSetup(){
   }
   settings.hotelName = hotel; settings.gstNo = gst; settings.theme = 'saffron';
   await persist('settings');
-  const master = {id:uid(), username:uname, password:upass, role:'master', permissions:{tables:true,menu:true,stock:true,reports:true,settings:true}};
+  const master = {id:uid(), username:uname, password:upass, role:'master', permissions:{tables:true,menu:true,stock:true,rooms:true,reports:true,settings:true}};
   users.push(master);
   await persist('users');
   currentUser = master;
@@ -503,7 +557,8 @@ function enterApp(){
   showView('dashboard');
 }
 function updateBrand(){
-  document.getElementById('brandBox').innerHTML = (settings.hotelName || 'Hotel Name') +
+  const logoHtml = settings.logo ? `<img src="${settings.logo}" style="height:30px;border-radius:4px;margin-bottom:6px;display:block;">` : '';
+  document.getElementById('brandBox').innerHTML = logoHtml + (settings.hotelName || 'Hotel Name') +
     '<small>' + (settings.gstNo ? 'GSTIN: '+settings.gstNo : 'Hotel & Restaurant') + '</small>';
 }
 
@@ -513,6 +568,7 @@ const NAV_ITEMS = [
   {key:'tables', label:'Tables / KOT', ico:'&#9974;', perm:'tables'},
   {key:'menu', label:'Menu Items', ico:'&#9776;', perm:'menu'},
   {key:'stock', label:'Stock', ico:'&#9670;', perm:'stock'},
+  {key:'rooms', label:'Rooms', ico:'&#8962;', perm:'rooms'},
   {key:'reports', label:'Sale Reports', ico:'&#9776;', perm:'reports'},
   {key:'settings', label:'Settings', ico:'&#9881;', perm:'settings'},
 ];
@@ -527,12 +583,13 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
-  const titles = {dashboard:'Dashboard', tables:'Tables / KOT', menu:'Menu Items', stock:'Stock Management', reports:'Sale Reports', settings:'Settings'};
+  const titles = {dashboard:'Dashboard', tables:'Tables / KOT', menu:'Menu Items', stock:'Stock Management', rooms:'Rooms / Check-in', reports:'Sale Reports', settings:'Settings'};
   document.getElementById('viewTitle').textContent = titles[v];
   if(v==='dashboard') renderDashboard();
   if(v==='tables') renderTables();
   if(v==='menu') renderMenu();
   if(v==='stock') renderStock();
+  if(v==='rooms') renderRooms();
   if(v==='reports') renderReports();
   if(v==='settings') renderSettings();
 }
@@ -549,6 +606,13 @@ function renderSettings(){
   document.getElementById('set_addr').value = settings.address || '';
   document.getElementById('set_phone').value = settings.phone || '';
 
+  if(settings.logo){
+    document.getElementById('logoPreviewBox').style.display = 'block';
+    document.getElementById('logoPreview').src = settings.logo;
+  } else {
+    document.getElementById('logoPreviewBox').style.display = 'none';
+  }
+
   document.getElementById('themeRow').innerHTML = Object.keys(THEMES).map(k=>{
     const t = THEMES[k];
     const isActive = (settings.theme||'saffron')===k;
@@ -558,10 +622,12 @@ function renderSettings(){
     </button>`;
   }).join('');
 
-  document.getElementById('userMgmtPanel').style.display = currentUser.role==='master' ? 'block' : 'none';
-  if(currentUser.role==='master') renderUsers();
+  document.getElementById('userMgmtPanel').style.display = isMaster() ? 'block' : 'none';
+  document.getElementById('backupPanel').style.display = isMaster() ? 'block' : 'none';
+  if(isMaster()) renderUsers();
 }
 async function saveBusinessInfo(){
+  if(!isMaster()){ alert('Sirf Master ID hotel ki jaankari/theme/logo edit kar sakti hai.'); return; }
   settings.hotelName = document.getElementById('set_name').value.trim();
   settings.gstNo = document.getElementById('set_gst').value.trim();
   settings.address = document.getElementById('set_addr').value.trim();
@@ -569,6 +635,58 @@ async function saveBusinessInfo(){
   await persist('settings');
   updateBrand();
   alert('Hotel ki jaankari save ho gayi.');
+}
+function uploadLogo(input){
+  if(!isMaster()){ alert('Sirf Master ID logo add kar sakti hai.'); return; }
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 900000){ alert('Logo image chhoti size ki rakhein (900KB se kam).'); return; }
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    settings.logo = e.target.result;
+    await persist('settings');
+    renderSettings();
+  };
+  reader.readAsDataURL(file);
+}
+async function removeLogo(){
+  if(!isMaster()){ alert('Sirf Master ID logo hata sakti hai.'); return; }
+  settings.logo = '';
+  await persist('settings');
+  renderSettings();
+}
+function exportAllData(){
+  if(!isMaster()){ alert('Sirf Master ID data export kar sakti hai.'); return; }
+  const payload = {items, tables, orders, sales, stockMoves, users, settings, rooms, bookings, exportedAt:new Date().toISOString()};
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'hotel-data-backup-'+todayISO()+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+async function importAllDataFile(input){
+  if(!isMaster()){ alert('Sirf Master ID data import kar sakti hai.'); return; }
+  const file = input.files[0];
+  if(!file) return;
+  if(!confirm('Import karne se is computer ka current data replace ho jayega. Continue karein?')) return;
+  try{
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    items = payload.items || items;
+    tables = payload.tables || tables;
+    orders = payload.orders || orders;
+    sales = payload.sales || sales;
+    stockMoves = payload.stockMoves || stockMoves;
+    users = payload.users || users;
+    settings = payload.settings || settings;
+    rooms = payload.rooms || rooms;
+    bookings = payload.bookings || bookings;
+    await persist('items'); await persist('tables'); await persist('orders'); await persist('sales');
+    await persist('stockMoves'); await persist('users'); await persist('settings'); await persist('rooms'); await persist('bookings');
+    alert('Data import ho gaya. Page refresh ho raha hai.');
+    location.reload();
+  }catch(e){ alert('Ye file sahi format mein nahi hai.'); }
 }
 async function chooseTheme(key){
   settings.theme = key;
@@ -588,6 +706,7 @@ function renderUsers(){
             <label class="chk"><input type="checkbox" id="eu_tables" ${u.permissions.tables?'checked':''}> Tables/KOT</label>
             <label class="chk"><input type="checkbox" id="eu_menu" ${u.permissions.menu?'checked':''}> Menu</label>
             <label class="chk"><input type="checkbox" id="eu_stock" ${u.permissions.stock?'checked':''}> Stock</label>
+            <label class="chk"><input type="checkbox" id="eu_rooms" ${u.permissions.rooms?'checked':''}> Rooms</label>
             <label class="chk"><input type="checkbox" id="eu_reports" ${u.permissions.reports?'checked':''}> Reports</label>
           </div>
           <label class="f" style="max-width:220px;">Naya Password (khaali chodein agar badalna nahi)<input id="eu_pass" type="text"></label>
@@ -620,6 +739,7 @@ async function addUser(){
     tables: document.getElementById('nu_tables').checked,
     menu: document.getElementById('nu_menu').checked,
     stock: document.getElementById('nu_stock').checked,
+    rooms: document.getElementById('nu_rooms').checked,
     reports: document.getElementById('nu_reports').checked,
     settings: false
   };
@@ -634,6 +754,7 @@ async function saveUserEdit(id){
   u.permissions.tables = document.getElementById('eu_tables').checked;
   u.permissions.menu = document.getElementById('eu_menu').checked;
   u.permissions.stock = document.getElementById('eu_stock').checked;
+  u.permissions.rooms = document.getElementById('eu_rooms').checked;
   u.permissions.reports = document.getElementById('eu_reports').checked;
   const newPass = document.getElementById('eu_pass').value;
   if(newPass) u.password = newPass;
@@ -663,14 +784,19 @@ async function addMenuItem(){
   renderMenu();
 }
 async function deleteMenuItem(id){
+  if(!isMaster()){ alert('Sirf Master ID hi item delete kar sakti hai.'); return; }
   if(!confirm('Ye item delete karna hai?')) return;
   items = items.filter(i=>i.id!==id);
   await persist('items');
   renderMenu();
 }
-function startEditMenuItem(id){ editingMenuItemId = id; renderMenu(); }
+function startEditMenuItem(id){
+  if(!isMaster()){ alert('Sirf Master ID hi item rate/details edit kar sakti hai.'); return; }
+  editingMenuItemId = id; renderMenu();
+}
 function cancelEditMenuItem(){ editingMenuItemId = null; renderMenu(); }
 async function saveMenuItem(id){
+  if(!isMaster()){ alert('Sirf Master ID hi item rate/details edit kar sakti hai.'); return; }
   const item = items.find(i=>i.id===id);
   if(!item) return;
   item.name = document.getElementById('edit_name_'+id).value.trim() || item.name;
@@ -704,8 +830,8 @@ function renderMenu(){
       <td>${i.name}</td><td>${i.cat}</td><td class="num">${money(i.price)}</td><td>${i.unit}</td>
       <td class="num">${i.stock}</td><td class="num">${i.reorder}</td>
       <td>
-        <button class="btn ghost small" onclick="startEditMenuItem('${i.id}')">Edit</button>
-        <button class="btn danger small" onclick="deleteMenuItem('${i.id}')">Delete</button>
+        ${isMaster() ? `<button class="btn ghost small" onclick="startEditMenuItem('${i.id}')">Edit</button>
+        <button class="btn danger small" onclick="deleteMenuItem('${i.id}')">Delete</button>` : `<span style="color:var(--ink-soft);font-size:12px;">Master hi edit/delete kar sakti hai</span>`}
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" class="empty-hint">Koi item nahi hai. Upar se add karein.</td></tr>`;
@@ -720,6 +846,7 @@ async function addTablePrompt(){
   renderTables();
 }
 async function renameTable(id){
+  if(!isMaster()){ alert('Sirf Master ID hi table edit kar sakti hai.'); return; }
   const t = tables.find(x=>x.id===id);
   if(!t) return;
   const name = prompt('Table ka naya naam:', t.name);
@@ -732,6 +859,7 @@ async function renameTable(id){
   renderTables();
 }
 async function deleteTable(id){
+  if(!isMaster()){ alert('Sirf Master ID hi table delete kar sakti hai.'); return; }
   const t = tables.find(x=>x.id===id);
   if(!t) return;
   if(t.status!=='free'){ alert('Occupied table delete nahi ho sakta. Pehle bill banayein.'); return; }
@@ -749,8 +877,8 @@ function renderTables(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
         <div class="tname" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.name}</div>
         <div style="display:flex;gap:4px;">
-          <button class="ticon" title="Naam badlein" onclick="renameTable('${t.id}')">&#9998;</button>
-          ${t.status==='free' ? `<button class="ticon" title="Delete" onclick="deleteTable('${t.id}')">&times;</button>` : ''}
+          ${isMaster() ? `<button class="ticon" title="Naam badlein" onclick="renameTable('${t.id}')">&#9998;</button>` : ''}
+          ${(isMaster() && t.status==='free') ? `<button class="ticon" title="Delete" onclick="deleteTable('${t.id}')">&times;</button>` : ''}
         </div>
       </div>
       <div class="tstatus" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.status==='free' ? 'Khaali' : (order && order.kotSent ? 'KOT Bheji Gayi' : 'Order Chal Raha Hai')}</div>
@@ -774,6 +902,21 @@ async function openTable(tableId){
   activeCategory = 'Sabhi';
   document.getElementById('menuSearch').value='';
   document.getElementById('orderModalTitle').textContent = t.name;
+  document.getElementById('orderOverlay').classList.add('active');
+  renderMenuPicker();
+  renderTicket();
+  document.getElementById('billSection').innerHTML='';
+}
+async function quickPOSBill(){
+  const posNo = sales.filter(s=>s.tableName && s.tableName.startsWith('Counter Sale')).length + orders.filter(o=>o.tableName && o.tableName.startsWith('Counter Sale')).length + 1;
+  const order = {id:uid(), tableId:'POS-'+uid(), tableName:'Counter Sale #'+posNo, lines:[], createdAt:new Date().toISOString(), kotSent:false, staffName: currentUser.username, isPOS:true};
+  orders.push(order);
+  await persist('orders');
+  currentOrderId = order.id;
+  editingBillId = null; editingBillTemp = null;
+  activeCategory = 'Sabhi';
+  document.getElementById('menuSearch').value='';
+  document.getElementById('orderModalTitle').textContent = order.tableName;
   document.getElementById('orderOverlay').classList.add('active');
   renderMenuPicker();
   renderTicket();
@@ -864,9 +1007,46 @@ function renderTicket(){
     ${editingBillId ? '' : `<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
       <button class="btn ghost small" onclick="sendKOT()">${order.kotSent ? 'KOT Bheji Gayi' : 'Kitchen Ko Bhejein (KOT)'}</button>
       <button class="btn ghost small" onclick="printKOTReceipt()">Print KOT</button>
+      <button class="btn ghost small" onclick="openTransferPicker()">Table Transfer</button>
       <button class="btn accent small" onclick="openBilling()">Bill Banayein</button>
     </div>`}
+    <div id="transferBox"></div>
   `;
+}
+function openTransferPicker(){
+  const order = getCurrentOrder();
+  if(!order){ return; }
+  const freeTables = tables.filter(t=>t.status==='free' && t.id!==order.tableId);
+  const box = document.getElementById('transferBox');
+  if(freeTables.length===0){
+    box.innerHTML = `<div class="empty-hint">Koi khaali table nahi hai transfer karne ke liye.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="billbox">
+    <label class="f">Kis Table Mein Transfer Karein?
+      <select id="transferTarget">${freeTables.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+    </label>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn accent small" onclick="confirmTransfer()">Transfer Confirm Karein</button>
+      <button class="btn ghost small" onclick="document.getElementById('transferBox').innerHTML=''">Cancel</button>
+    </div>
+  </div>`;
+}
+async function confirmTransfer(){
+  const order = getCurrentOrder();
+  if(!order) return;
+  const targetId = document.getElementById('transferTarget').value;
+  const oldTable = tables.find(t=>t.id===order.tableId);
+  const newTable = tables.find(t=>t.id===targetId);
+  if(!newTable || newTable.status!=='free'){ alert('Ye table ab khaali nahi hai.'); return; }
+  if(oldTable){ oldTable.status='free'; oldTable.orderId=null; }
+  newTable.status='occupied'; newTable.orderId=order.id;
+  order.tableId = newTable.id; order.tableName = newTable.name;
+  await persist('tables'); await persist('orders');
+  document.getElementById('orderModalTitle').textContent = newTable.name;
+  document.getElementById('transferBox').innerHTML = '';
+  renderTicket();
+  renderTables();
 }
 function printKOTReceipt(){
   const order = getCurrentOrder();
@@ -929,28 +1109,37 @@ function openBilling(){
       </div>
       <div class="formgrid" style="margin-bottom:10px;">
         <label class="f">Tax %<input id="bl_tax" type="number" value="5" style="width:100%"></label>
-        <label class="f">Discount (Rs)<input id="bl_disc" type="number" value="0" style="width:100%"></label>
+        <label class="f">Discount Type<select id="bl_disctype" style="width:100%"><option value="pct">Percent (%)</option><option value="amt">Amount (Rs)</option></select></label>
+        <label class="f">Discount Value<input id="bl_discval" type="number" value="0" style="width:100%"></label>
         <label class="f">Payment Mode<select id="bl_pay" style="width:100%"><option>Cash</option><option>UPI</option><option>Card</option></select></label>
       </div>
       <div id="billPreview"></div>
       <button class="btn accent" style="width:100%;margin-top:8px;" onclick="confirmBill()">Bill Confirm Karein & Table Free Karein</button>
     </div>`;
   document.getElementById('bl_tax').addEventListener('input', updateBillPreview);
-  document.getElementById('bl_disc').addEventListener('input', updateBillPreview);
+  document.getElementById('bl_disctype').addEventListener('change', updateBillPreview);
+  document.getElementById('bl_discval').addEventListener('input', updateBillPreview);
   updateBillPreview();
+}
+function computeDiscountAmt(subtotal){
+  const discType = document.getElementById('bl_disctype').value;
+  const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
+  return discType==='pct' ? subtotal*discVal/100 : discVal;
 }
 function updateBillPreview(){
   const order = getCurrentOrder();
   if(!order) return;
   const subtotal = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
   const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
-  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const discType = document.getElementById('bl_disctype').value;
+  const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
+  const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
   const grand = Math.max(0, subtotal+taxAmt-disc);
   document.getElementById('billPreview').innerHTML = `
     <div class="billrow"><span>Subtotal</span><span>${money(subtotal)}</span></div>
     <div class="billrow"><span>Tax (${taxPct}%)</span><span>${money(taxAmt)}</span></div>
-    <div class="billrow"><span>Discount</span><span>-${money(disc)}</span></div>
+    <div class="billrow"><span>Discount${discType==='pct' ? ' ('+discVal+'%)' : ''}</span><span>-${money(disc)}</span></div>
     <div class="billrow grand"><span>Grand Total</span><span>${money(grand)}</span></div>`;
 }
 async function confirmBill(){
@@ -958,7 +1147,9 @@ async function confirmBill(){
   if(!order) return;
   const subtotal = order.lines.reduce((s,l)=>s+l.qty*l.price,0);
   const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
-  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const discType = document.getElementById('bl_disctype').value;
+  const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
+  const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
   const grand = Math.max(0, subtotal+taxAmt-disc);
   const pay = document.getElementById('bl_pay').value;
@@ -973,7 +1164,7 @@ async function confirmBill(){
     staffName: order.staffName || '',
     customerName: custName, customerPhone: custPhone, customerAddress: custAddr, customerGst: custGst,
     lines: order.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price})),
-    subtotal, taxPct, taxAmt, discount:disc, grandTotal:grand, payment:pay
+    subtotal, taxPct, taxAmt, discountType:discType, discountValue:discVal, discount:disc, grandTotal:grand, payment:pay
   };
   sales.push(sale);
 
@@ -1022,6 +1213,7 @@ function printBillReceipt(sale){
     </style></head>
     <body>
       <div class="invhead">
+        ${settings.logo ? `<img src="${settings.logo}" style="height:55px;margin-bottom:6px;">` : ''}
         <h2>${settings.hotelName||'Hotel'}</h2>
         ${settings.address ? `<div>${settings.address}</div>` : ''}
         <div>${settings.phone ? 'Ph: '+settings.phone : ''}${settings.phone && settings.gstNo ? ' | ' : ''}${settings.gstNo ? 'GSTIN: '+settings.gstNo : ''}</div>
@@ -1047,7 +1239,7 @@ function printBillReceipt(sale){
         <div class="totrow"><span>Subtotal</span><span>Rs ${sale.subtotal.toFixed(2)}</span></div>
         <div class="totrow"><span>CGST (${halfPct}%)</span><span>Rs ${cgst.toFixed(2)}</span></div>
         <div class="totrow"><span>SGST (${halfPct}%)</span><span>Rs ${sgst.toFixed(2)}</span></div>
-        <div class="totrow"><span>Discount</span><span>-Rs ${sale.discount.toFixed(2)}</span></div>
+        <div class="totrow"><span>Discount${sale.discountType==='pct' ? ' ('+sale.discountValue+'%)' : ''}</span><span>-Rs ${sale.discount.toFixed(2)}</span></div>
         <div class="totrow grand"><span>Grand Total</span><span>Rs ${sale.grandTotal.toFixed(2)}</span></div>
         <div class="totrow"><span>Payment Mode</span><span>${sale.payment}</span></div>
       </div>
@@ -1086,7 +1278,11 @@ function openBillEditor(saleId){
       </div>
       <div class="formgrid" style="margin-bottom:10px;">
         <label class="f">Tax %<input id="bl_tax" type="number" value="${sale.taxPct}" style="width:100%"></label>
-        <label class="f">Discount (Rs)<input id="bl_disc" type="number" value="${sale.discount}" style="width:100%"></label>
+        <label class="f">Discount Type<select id="bl_disctype" style="width:100%">
+          <option value="pct" ${sale.discountType==='pct'?'selected':''}>Percent (%)</option>
+          <option value="amt" ${sale.discountType==='amt'?'selected':''}>Amount (Rs)</option>
+        </select></label>
+        <label class="f">Discount Value<input id="bl_discval" type="number" value="${sale.discountValue!==undefined?sale.discountValue:sale.discount}" style="width:100%"></label>
         <label class="f">Payment Mode<select id="bl_pay" style="width:100%">
           <option ${sale.payment==='Cash'?'selected':''}>Cash</option>
           <option ${sale.payment==='UPI'?'selected':''}>UPI</option>
@@ -1097,7 +1293,8 @@ function openBillEditor(saleId){
       <button class="btn accent" style="width:100%;margin-top:8px;" onclick="confirmBillEdit()">Bill Update Karein</button>
     </div>`;
   document.getElementById('bl_tax').addEventListener('input', updateBillPreview);
-  document.getElementById('bl_disc').addEventListener('input', updateBillPreview);
+  document.getElementById('bl_disctype').addEventListener('change', updateBillPreview);
+  document.getElementById('bl_discval').addEventListener('input', updateBillPreview);
   updateBillPreview();
 }
 async function confirmBillEdit(){
@@ -1105,7 +1302,9 @@ async function confirmBillEdit(){
   if(!sale || !editingBillTemp) return;
   const subtotal = editingBillTemp.lines.reduce((s,l)=>s+l.qty*l.price,0);
   const taxPct = parseFloat(document.getElementById('bl_tax').value)||0;
-  const disc = parseFloat(document.getElementById('bl_disc').value)||0;
+  const discType = document.getElementById('bl_disctype').value;
+  const discVal = parseFloat(document.getElementById('bl_discval').value)||0;
+  const disc = computeDiscountAmt(subtotal);
   const taxAmt = subtotal*taxPct/100;
   const grand = Math.max(0, subtotal+taxAmt-disc);
   const pay = document.getElementById('bl_pay').value;
@@ -1120,7 +1319,7 @@ async function confirmBillEdit(){
   });
 
   sale.lines = editingBillTemp.lines.map(l=>({itemId:l.itemId, name:l.name, qty:l.qty, price:l.price, total:l.qty*l.price}));
-  sale.subtotal = subtotal; sale.taxPct = taxPct; sale.taxAmt = taxAmt; sale.discount = disc; sale.grandTotal = grand; sale.payment = pay;
+  sale.subtotal = subtotal; sale.taxPct = taxPct; sale.discountType = discType; sale.discountValue = discVal; sale.discount = disc; sale.taxAmt = taxAmt; sale.grandTotal = grand; sale.payment = pay;
   sale.customerName = document.getElementById('bl_custname').value.trim();
   sale.customerPhone = document.getElementById('bl_custphone').value.trim();
   sale.customerAddress = document.getElementById('bl_custaddr').value.trim();
@@ -1144,6 +1343,204 @@ async function deleteBill(saleId){
   sales = sales.filter(s=>s.id!==saleId);
   await persist('sales'); await persist('items'); await persist('stockMoves');
   renderReports(); renderStock();
+}
+
+/* ---------------- ROOMS / CHECK-IN-OUT ---------------- */
+async function addRoomPrompt(){
+  if(!isMaster()){ alert('Sirf Master ID naya room add kar sakti hai.'); return; }
+  const roomNo = prompt('Naye room ka number:');
+  if(!roomNo) return;
+  const type = prompt('Room type (e.g. Standard/Deluxe):', 'Standard') || 'Standard';
+  const rate = parseFloat(prompt('Rate per night (Rs):', '1500')) || 0;
+  rooms.push({id:uid(), roomNo, type, rate, status:'vacant', currentBookingId:null});
+  await persist('rooms');
+  renderRooms();
+}
+async function deleteRoom(id){
+  if(!isMaster()){ alert('Sirf Master ID room delete kar sakti hai.'); return; }
+  const r = rooms.find(x=>x.id===id);
+  if(!r) return;
+  if(r.status!=='vacant'){ alert('Occupied room delete nahi ho sakta. Pehle guest check-out karein.'); return; }
+  if(!confirm('Ye room delete karna hai?')) return;
+  rooms = rooms.filter(x=>x.id!==id);
+  await persist('rooms');
+  renderRooms();
+}
+function renderRooms(){
+  const addBtn = document.getElementById('addRoomBtn');
+  if(addBtn) addBtn.style.display = isMaster() ? 'inline-block' : 'none';
+  const grid = document.getElementById('roomGrid');
+  grid.innerHTML = rooms.map(r=>{
+    const booking = bookings.find(b=>b.id===r.currentBookingId && b.status==='active');
+    return `<div class="tablecard ${r.status==='vacant'?'free':'occupied'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+        <div class="tname" style="cursor:pointer;" onclick="openRoomModal('${r.id}')">Room ${r.roomNo}</div>
+        ${(isMaster() && r.status==='vacant') ? `<button class="ticon" title="Delete" onclick="deleteRoom('${r.id}')">&times;</button>` : ''}
+      </div>
+      <div class="tstatus" style="cursor:pointer;" onclick="openRoomModal('${r.id}')">${r.type} &middot; ${money(r.rate)}/night</div>
+      <div class="tstatus" style="cursor:pointer;" onclick="openRoomModal('${r.id}')">${r.status==='vacant' ? 'Khaali' : ('Guest: '+(booking?booking.guestName:'-'))}</div>
+    </div>`;
+  }).join('') || `<div class="empty-hint">Koi room nahi hai. Master ID se "+ Naya Room" se add karein.</div>`;
+}
+function closeRoomModal(){
+  document.getElementById('roomOverlay').classList.remove('active');
+  renderRooms();
+}
+function openRoomModal(roomId){
+  const r = rooms.find(x=>x.id===roomId);
+  if(!r) return;
+  document.getElementById('roomOverlay').classList.add('active');
+  if(r.status==='vacant'){
+    document.getElementById('roomModalTitle').textContent = 'Check-In: Room ' + r.roomNo;
+    document.getElementById('roomModalBody').innerHTML = `
+      <label class="f">Guest Naam<input id="ci_name" style="width:100%"></label>
+      <label class="f">Guest Number<input id="ci_phone" style="width:100%"></label>
+      <label class="f">Guest Address<input id="ci_addr" style="width:100%"></label>
+      <label class="f">Guest GST No (agar ho)<input id="ci_gst" style="width:100%"></label>
+      <label class="f">Rate Per Night (Rs)<input id="ci_rate" type="number" value="${r.rate}" style="width:100%"></label>
+      <button class="btn accent" style="width:100%;margin-top:12px;" onclick="confirmCheckin('${r.id}')">Check-In Karein</button>
+    `;
+  } else {
+    const booking = bookings.find(b=>b.id===r.currentBookingId && b.status==='active');
+    if(!booking){ document.getElementById('roomModalBody').innerHTML = `<div class="empty-hint">Booking nahi mili.</div>`; return; }
+    const nights = Math.max(1, Math.ceil((Date.now() - new Date(booking.checkinDate).getTime())/86400000));
+    const roomTotal = nights * booking.ratePerNight;
+    document.getElementById('roomModalTitle').textContent = 'Room ' + r.roomNo + ' - ' + booking.guestName;
+    document.getElementById('roomModalBody').innerHTML = `
+      <div class="billbox">
+        <div><b>Guest:</b> ${booking.guestName}</div>
+        ${booking.guestPhone ? `<div><b>Phone:</b> ${booking.guestPhone}</div>` : ''}
+        ${booking.guestAddress ? `<div><b>Address:</b> ${booking.guestAddress}</div>` : ''}
+        ${booking.guestGst ? `<div><b>GST:</b> ${booking.guestGst}</div>` : ''}
+        <div style="margin-top:8px;"><b>Check-in:</b> ${new Date(booking.checkinDate).toLocaleString('en-IN')}</div>
+        <div><b>Nights So Far:</b> ${nights}</div>
+        <div><b>Rate/Night:</b> ${money(booking.ratePerNight)}</div>
+        <div style="margin-top:6px;font-weight:700;">Estimated Room Charge: ${money(roomTotal)}</div>
+      </div>
+      <button class="btn accent" style="width:100%;margin-top:12px;" onclick="openCheckoutBilling('${booking.id}')">Check-Out &amp; Bill Banayein</button>
+    `;
+  }
+}
+async function confirmCheckin(roomId){
+  const r = rooms.find(x=>x.id===roomId);
+  if(!r) return;
+  const name = document.getElementById('ci_name').value.trim();
+  if(!name){ alert('Guest ka naam daalein'); return; }
+  const phone = document.getElementById('ci_phone').value.trim();
+  const addr = document.getElementById('ci_addr').value.trim();
+  const gst = document.getElementById('ci_gst').value.trim();
+  const rate = parseFloat(document.getElementById('ci_rate').value) || r.rate;
+  const booking = {id:uid(), roomId:r.id, roomNo:r.roomNo, guestName:name, guestPhone:phone, guestAddress:addr, guestGst:gst, checkinDate:new Date().toISOString(), ratePerNight:rate, status:'active', checkoutDate:null};
+  bookings.push(booking);
+  r.status='occupied'; r.currentBookingId=booking.id;
+  await persist('bookings'); await persist('rooms');
+  closeRoomModal();
+}
+function openCheckoutBilling(bookingId){
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  const nights = Math.max(1, Math.ceil((Date.now() - new Date(booking.checkinDate).getTime())/86400000));
+  const roomTotal = nights * booking.ratePerNight;
+  document.getElementById('roomModalTitle').textContent = 'Check-Out: Room ' + booking.roomNo;
+  document.getElementById('roomModalBody').innerHTML = `
+    <div class="billbox">
+      <div><b>Guest:</b> ${booking.guestName}</div>
+      <div style="margin-top:4px;"><b>Nights:</b> ${nights} x ${money(booking.ratePerNight)} = ${money(roomTotal)}</div>
+      <div class="formgrid" style="margin-top:10px;">
+        <label class="f">Tax %<input id="rb_tax" type="number" value="12" style="width:100%"></label>
+        <label class="f">Discount Type<select id="rb_disctype" style="width:100%"><option value="pct">Percent (%)</option><option value="amt">Amount (Rs)</option></select></label>
+        <label class="f">Discount Value<input id="rb_discval" type="number" value="0" style="width:100%"></label>
+        <label class="f">Payment Mode<select id="rb_pay" style="width:100%"><option>Cash</option><option>UPI</option><option>Card</option></select></label>
+      </div>
+      <div id="roomBillPreview" style="margin-top:8px;"></div>
+    </div>
+    <button class="btn accent" style="width:100%;margin-top:10px;" onclick="confirmCheckout('${booking.id}', ${nights}, ${roomTotal})">Check-Out Confirm Karein</button>
+  `;
+  ['rb_tax','rb_disctype','rb_discval'].forEach(id=>{
+    document.getElementById(id).addEventListener(id==='rb_disctype'?'change':'input', ()=>updateRoomBillPreview(roomTotal));
+  });
+  updateRoomBillPreview(roomTotal);
+}
+function updateRoomBillPreview(roomTotal){
+  const taxPct = parseFloat(document.getElementById('rb_tax').value)||0;
+  const discType = document.getElementById('rb_disctype').value;
+  const discVal = parseFloat(document.getElementById('rb_discval').value)||0;
+  const disc = discType==='pct' ? roomTotal*discVal/100 : discVal;
+  const taxAmt = roomTotal*taxPct/100;
+  const grand = Math.max(0, roomTotal+taxAmt-disc);
+  document.getElementById('roomBillPreview').innerHTML = `
+    <div class="billrow"><span>Room Charges</span><span>${money(roomTotal)}</span></div>
+    <div class="billrow"><span>Tax (${taxPct}%)</span><span>${money(taxAmt)}</span></div>
+    <div class="billrow"><span>Discount${discType==='pct'?' ('+discVal+'%)':''}</span><span>-${money(disc)}</span></div>
+    <div class="billrow grand"><span>Grand Total</span><span>${money(grand)}</span></div>`;
+}
+async function confirmCheckout(bookingId, nights, roomTotal){
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  const taxPct = parseFloat(document.getElementById('rb_tax').value)||0;
+  const discType = document.getElementById('rb_disctype').value;
+  const discVal = parseFloat(document.getElementById('rb_discval').value)||0;
+  const disc = discType==='pct' ? roomTotal*discVal/100 : discVal;
+  const taxAmt = roomTotal*taxPct/100;
+  const grand = Math.max(0, roomTotal+taxAmt-disc);
+  const pay = document.getElementById('rb_pay').value;
+
+  booking.status='closed';
+  booking.checkoutDate = new Date().toISOString();
+  booking.nights = nights; booking.roomTotal = roomTotal; booking.taxPct=taxPct;
+  booking.taxAmt=taxAmt; booking.discountType=discType; booking.discountValue=discVal; booking.discount=disc;
+  booking.grandTotal=grand; booking.payment=pay;
+
+  const r = rooms.find(x=>x.id===booking.roomId);
+  if(r){ r.status='vacant'; r.currentBookingId=null; }
+
+  await persist('bookings'); await persist('rooms');
+  closeRoomModal();
+  const doPrint = confirm('Room '+booking.roomNo+' check-out ho gaya. Grand Total: '+money(grand)+'\n\nPrint karna hai?');
+  if(doPrint) printRoomBill(booking);
+}
+function printRoomBill(booking){
+  const win = window.open('', '_blank', 'width=480,height=720');
+  if(!win){ alert('Print window block ho gayi. Browser mein popup allow karein.'); return; }
+  win.document.write(`<html><head><title>Room Bill ${booking.roomNo}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px;font-size:12.5px;color:#111;}
+      .invhead{text-align:center;border-bottom:2px solid #222;padding-bottom:10px;margin-bottom:10px;}
+      .invhead h2{margin:0;font-size:19px;}
+      .invhead div{font-size:11.5px;color:#333;margin-top:2px;}
+      .tag{display:inline-block;margin-top:6px;font-size:11px;font-weight:bold;letter-spacing:.06em;border:1px solid #222;padding:2px 10px;border-radius:3px;}
+      .custbox{border:1px solid #999;border-radius:4px;padding:8px 10px;margin:10px 0;font-size:11.5px;}
+      .totbox{width:270px;margin-left:auto;font-size:12px;margin-top:10px;}
+      .totrow{display:flex;justify-content:space-between;padding:3px 0;}
+      .totrow.grand{border-top:2px solid #222;margin-top:4px;padding-top:6px;font-weight:bold;font-size:14px;}
+      .footnote{text-align:center;font-size:10.5px;color:#666;margin-top:18px;border-top:1px dashed #999;padding-top:8px;}
+    </style></head>
+    <body>
+      <div class="invhead">
+        ${settings.logo ? `<img src="${settings.logo}" style="height:55px;margin-bottom:6px;">` : ''}
+        <h2>${settings.hotelName||'Hotel'}</h2>
+        ${settings.address ? `<div>${settings.address}</div>` : ''}
+        <div>${settings.gstNo ? 'GSTIN: '+settings.gstNo : ''}</div>
+        <span class="tag">ROOM BILL</span>
+      </div>
+      <div>Room No: ${booking.roomNo} &nbsp;|&nbsp; Check-in: ${new Date(booking.checkinDate).toLocaleString('en-IN')} &nbsp;|&nbsp; Check-out: ${new Date(booking.checkoutDate).toLocaleString('en-IN')}</div>
+      <div class="custbox">
+        <b>Guest:</b> ${booking.guestName}<br>
+        ${booking.guestPhone?('Ph: '+booking.guestPhone+'<br>'):''}
+        ${booking.guestAddress?(booking.guestAddress+'<br>'):''}
+        ${booking.guestGst?('GSTIN: '+booking.guestGst):''}
+      </div>
+      <div class="totbox">
+        <div class="totrow"><span>Room Charges (${booking.nights} nights x Rs ${booking.ratePerNight})</span><span>Rs ${booking.roomTotal.toFixed(2)}</span></div>
+        <div class="totrow"><span>Tax (${booking.taxPct}%)</span><span>Rs ${booking.taxAmt.toFixed(2)}</span></div>
+        <div class="totrow"><span>Discount</span><span>-Rs ${booking.discount.toFixed(2)}</span></div>
+        <div class="totrow grand"><span>Grand Total</span><span>Rs ${booking.grandTotal.toFixed(2)}</span></div>
+      </div>
+      <div class="footnote">Payment Mode: ${booking.payment} &nbsp;|&nbsp; Thank you for staying with us!</div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
 }
 
 /* ---------------- STOCK ---------------- */
