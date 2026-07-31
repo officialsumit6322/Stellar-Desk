@@ -1,25 +1,6 @@
 <!DOCTYPE html>
 <html lang="hi">
-<head><style>
-  #login-container {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #1a1a1a; display: flex; justify-content: center;
-    align-items: center; z-index: 9999; font-family: sans-serif;
-  }
-  .login-box {
-    background: #2a2a2a; padding: 30px; border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 300px; text-align: center;
-  }
-  .login-box h2 { color: #fff; margin-bottom: 20px; }
-  .login-box input {
-    width: 100%; padding: 10px; margin: 10px 0; border: none;
-    border-radius: 4px; background: #3a3a3a; color: #fff; box-sizing: border-box;
-  }
-  .login-box button {
-    width: 100%; padding: 10px; background: #saffron; border: none;
-    color: white; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;
-  }
-</style>
+<head>
 <meta charset="UTF-8">
 <title>Hotel & Restaurant Management System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -181,14 +162,7 @@
 </style>
 </head>
 <body>
-<div id="login-container">
-  <div class="login-box">
-    <h2>Stellar Desk Login</h2>
-    <input type="email" id="login-email" placeholder="Enter Email ID" required>
-    <input type="password" id="login-password" placeholder="Enter Password" required>
-    <button onclick="loginWithFirebase()">Login</button>
-  </div>
-</div>
+
 <div class="authbg" id="authOverlay">
   <div class="authcard">
     <h2 id="authTitle">Master ID Setup</h2>
@@ -2491,43 +2465,13 @@ function printReportPDF(){
   setTimeout(()=>win.print(), 300);
 }
 
-/* ---------------- INIT ---------------- */// Firebase Auth Login Function
-function loginWithFirebase() {
-  const email = document.getElementById('login-email').value;
-  const pass = document.getElementById('login-password').value;
-
-  if(!email || !pass) {
-    alert("कृपया आईडी और पासवर्ड दोनों भरें।");
-    return;
-  }
-
-  firebase.auth().signInWithEmailAndPassword(email, pass)
-    .then((userCredential) => {
-      // लॉगिन सफल होने पर स्क्रीन छुपाएं
-      document.getElementById('login-container').style.display = 'none';
-    })
-    .catch((error) => {
-      alert("गलत आईडी या पासवर्ड! कृपया दोबारा जांचें।");
-    });
-}
-
-// ऑटो-चेक: क्या यूजर पहले से लॉगिन है?
-firebase.auth().onAuthStateChanged((user) => {
-  if (user) {
-    // अगर लॉगिन है तो बॉक्स छुपाएं और ऐप लोड करें
-    document.getElementById('login-container').style.display = 'none';
-    if(typeof init === "function") { init(); }
-  } else {
-    // अगर लॉगिन नहीं है तो लॉगिन बॉक्स दिखाएं
-    document.getElementById('login-container').style.display = 'flex';
-  }
-});
+/* ---------------- INIT ---------------- */
 (async function init(){
   await loadState();
   tickClock();
   applyTheme(settings.theme || 'saffron');
   updateBrand();
-
+  renderAuthScreen();
   document.getElementById('orderOverlay').addEventListener('click', (e)=>{
     if(e.target.id==='orderOverlay') closeOrderModal();
   });
