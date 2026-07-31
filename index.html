@@ -1644,7 +1644,7 @@ function renderRooms(){
         <td>${b.status==='active' ? '<span class="pill warn">Staying</span>' : '<span class="pill good">Checked Out</span>'}</td>
         <td class="num">${b.grandTotal!==undefined ? money(b.grandTotal) : '-'}</td>
         <td>${b.status==='closed' ? `<button class="btn ghost small" onclick="reprintRoomBill('${b.id}')">Reprint</button>
-          ${isMaster() ? `<button class="btn ghost small" onclick="openRoomBillEditor('${b.id}')">Edit</button>` : ''}` : ''}</td>
+          ${isMaster() ? `<button class="btn ghost small" onclick="openRoomBillEditor('${b.id}')">Edit</button> <button class="btn danger small" onclick="deleteRoomBill('${b.id}')">Delete</button>` : ''}` : (isMaster() ? `<button class="btn ghost small" onclick="openGuestEditModal('${b.id}')">Guest Entry Edit</button>` : '')}</td>
       </tr>`).join('') || '<tr><td colspan="7" class="empty-hint">Koi record nahi hai.</td></tr>'}
     </tbody></table>
   `;
@@ -1725,6 +1725,62 @@ async function confirmRoomBillEdit(bookingId){
   renderRooms();
   alert('Room bill update ho gaya. Naya Grand Total: ' + money(grand));
 }
+async function deleteRoomBill(bookingId){
+  if(!isMaster()){ alert('Sirf Master ID hi room bill delete kar sakti hai.'); return; }
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  if(!confirm('Room '+booking.roomNo+' ('+booking.guestName+') ka ye bill/record delete karna hai? Ye history se hamesha ke liye hat jayega.')) return;
+  bookings = bookings.filter(b=>b.id!==bookingId);
+  await persist('bookings');
+  renderRooms();
+}
+function openGuestEditModal(bookingId){
+  if(!isMaster()){ alert('Sirf Master ID guest entry edit kar sakti hai.'); return; }
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  document.getElementById('roomOverlay').classList.add('active');
+  document.getElementById('roomModalTitle').textContent = 'Guest Entry Edit: Room ' + booking.roomNo;
+  const expVal = booking.expectedCheckout ? new Date(new Date(booking.expectedCheckout).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16) : '';
+  const checkinVal = new Date(new Date(booking.checkinDate).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('roomModalBody').innerHTML = `
+    <label class="f">Guest Naam<input id="ge_name" value="${(booking.guestName||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+    <label class="f">Guest Number<input id="ge_phone" value="${(booking.guestPhone||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+    <label class="f">Guest ID Proof Type<select id="ge_idtype" style="width:100%">
+      ${['Aadhaar','PAN','Driving License','Passport','Voter ID','Other'].map(t=>`<option ${booking.idType===t?'selected':''}>${t}</option>`).join('')}
+    </select></label>
+    <label class="f">Guest ID Proof Number<input id="ge_idno" value="${(booking.idNo||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+    <label class="f">Guest Address<input id="ge_addr" value="${(booking.guestAddress||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+    <label class="f">Guest GST No<input id="ge_gst" value="${(booking.guestGst||'').replace(/"/g,'&quot;')}" style="width:100%"></label>
+    <label class="f">No. of Guests<input id="ge_pax" type="number" value="${booking.pax||1}" style="width:100%"></label>
+    <label class="f">Rate Per Night (Rs)<input id="ge_rate" type="number" value="${booking.ratePerNight||0}" style="width:100%"></label>
+    <label class="f">Check-In Date/Time<input id="ge_checkin" type="datetime-local" value="${checkinVal}" style="width:100%"></label>
+    <label class="f">Expected Check-Out Date/Time<input id="ge_expcheckout" type="datetime-local" value="${expVal}" style="width:100%"></label>
+    <label class="f">Advance Payment (Rs)<input id="ge_advance" type="number" value="${booking.advance||0}" style="width:100%"></label>
+    <button class="btn accent" style="width:100%;margin-top:12px;" onclick="confirmGuestEdit('${booking.id}')">Guest Entry Update Karein</button>
+  `;
+}
+async function confirmGuestEdit(bookingId){
+  const booking = bookings.find(b=>b.id===bookingId);
+  if(!booking) return;
+  const name = document.getElementById('ge_name').value.trim();
+  if(!name){ alert('Guest ka naam daalein'); return; }
+  booking.guestName = name;
+  booking.guestPhone = document.getElementById('ge_phone').value.trim();
+  booking.idType = document.getElementById('ge_idtype').value;
+  booking.idNo = document.getElementById('ge_idno').value.trim();
+  booking.guestAddress = document.getElementById('ge_addr').value.trim();
+  booking.guestGst = document.getElementById('ge_gst').value.trim();
+  booking.pax = parseInt(document.getElementById('ge_pax').value) || 1;
+  booking.ratePerNight = parseFloat(document.getElementById('ge_rate').value) || booking.ratePerNight;
+  const checkinRaw = document.getElementById('ge_checkin').value;
+  if(checkinRaw) booking.checkinDate = new Date(checkinRaw).toISOString();
+  const expRaw = document.getElementById('ge_expcheckout').value;
+  booking.expectedCheckout = expRaw ? new Date(expRaw).toISOString() : null;
+  booking.advance = parseFloat(document.getElementById('ge_advance').value) || 0;
+  await persist('bookings');
+  closeRoomModal();
+  alert('Guest entry update ho gayi.');
+}
 function closeRoomModal(){
   document.getElementById('roomOverlay').classList.remove('active');
   renderRooms();
@@ -1784,6 +1840,7 @@ function openRoomModal(roomId){
         </div>
       </div>
       <button class="btn ghost" style="width:100%;margin-top:10px;" onclick="printRegistrationCard('${booking.id}')">Guest Registration Card Print Karein</button>
+      ${isMaster() ? `<button class="btn ghost" style="width:100%;margin-top:8px;" onclick="openGuestEditModal('${booking.id}')">Guest Entry Edit Karein (Master)</button>` : ''}
       <button class="btn ghost" style="width:100%;margin-top:8px;" onclick="openRoomFoodOrder('${booking.id}')">Room Mein Fooding - KOT / Bill Banayein</button>
       <button class="btn ghost" style="width:100%;margin-top:8px;" onclick="openRoomTransferPicker('${booking.id}')">Dusre Room Mein Shift Karein (Transfer)</button>
       <div id="roomTransferBox"></div>
