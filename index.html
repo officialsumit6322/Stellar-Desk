@@ -142,6 +142,12 @@
   .theme-swatch .sw-top div{flex:1;}
   .theme-swatch .sw-label{font-size:11.5px;padding:6px;text-align:center;font-weight:600;background:#fff;color:#222;}
 
+  .formatcard{border:2px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;background:#fff;text-align:left;width:100%;margin-bottom:10px;display:block;}
+  .formatcard:hover{border-color:var(--accent);}
+  .formatcard.active{border-color:var(--ink);background:var(--accent-bg);}
+  .formatcard .fc-title{font-weight:700;font-size:14px;font-family:var(--display);}
+  .formatcard .fc-desc{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+
   .userrow-edit{background:var(--bg);}
   .permsline{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;}
   .authbg{position:fixed;inset:0;background:var(--sidebar);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
@@ -395,6 +401,16 @@
   </div>
 </div>
 
+<div class="overlay" id="formatOverlay">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <h3>Bill Format Chunein</h3>
+      <button class="modal-close" onclick="document.getElementById('formatOverlay').classList.remove('active')">&times;</button>
+    </div>
+    <div class="modal-body" id="formatModalBody"></div>
+  </div>
+</div>
+
 <script>
 /* ================================================================
    FIREBASE CONFIG - PASTE YOUR OWN PROJECT CONFIG HERE
@@ -405,16 +421,13 @@
    mein online save hone lagega aur kisi bhi device se same data
    dikhega, chahe browser cache/history clear ho jaye.
    ================================================================ */
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBWrFjl3ezqz_w8DzhlQmZ7Kz9SJ1CoMRk",
-  authDomain: "stellar-desk-db.firebaseapp.com",
-  databaseURL: "https://stellar-desk-db-default-rtdb.firebaseio.com",
-  projectId: "stellar-desk-db",
-  storageBucket: "stellar-desk-db.firebasestorage.app",
-  messagingSenderId: "748687559394",
-  appId: "1:748687559394:web:85f0a327294b74e95e6cbb",
-  measurementId: "G-F1G23CKN1W"
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  projectId: "PASTE_YOUR_PROJECT_ID",
+  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId: "PASTE_YOUR_APP_ID"
 };
 let firestoreDb = null;
 let firebaseReady = false;
@@ -1304,43 +1317,100 @@ function amountInWords(amount){
 function invoiceStyleBlock(){
   return `
     *{box-sizing:border-box;}
-    body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;padding:0;margin:0;color:#1c1c1c;background:#f2f0ea;}
-    .sheet{max-width:760px;margin:18px auto;background:#fff;padding:34px 40px 28px 40px;box-shadow:0 2px 14px rgba(0,0,0,0.08);border-radius:6px;}
-    .brandbar{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #B5691A;padding-bottom:16px;margin-bottom:18px;gap:16px;}
+    body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;padding:0;margin:0;color:#000;background:#fff;}
+    .sheet{max-width:760px;margin:18px auto;background:#fff;padding:34px 40px 28px 40px;border:1px solid #000;}
+    .brandbar{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:16px;margin-bottom:18px;gap:16px;}
     .brandbar .left{display:flex;gap:14px;align-items:center;}
-    .brandbar img.logo{height:58px;width:58px;object-fit:contain;border-radius:8px;border:1px solid #E4DCC8;padding:4px;background:#fff;}
-    .brandbar h1{font-family:Georgia,'Times New Roman',serif;font-size:23px;margin:0;letter-spacing:.01em;color:#16302B;}
-    .brandbar .taglinerow{font-size:11.5px;color:#666;margin-top:4px;line-height:1.5;}
+    .brandbar img.logo{height:58px;width:58px;object-fit:contain;border-radius:8px;border:1px solid #999;padding:4px;background:#fff;filter:grayscale(100%);}
+    .brandbar h1{font-family:Georgia,'Times New Roman',serif;font-size:23px;margin:0;letter-spacing:.01em;color:#000;}
+    .brandbar .taglinerow{font-size:11.5px;color:#333;margin-top:4px;line-height:1.5;}
     .brandbar .right{text-align:right;}
-    .doctag{display:inline-block;background:#16302B;color:#fff;font-size:11px;font-weight:700;letter-spacing:.09em;padding:5px 14px;border-radius:4px;text-transform:uppercase;}
-    .doctag.kot{background:#B5691A;}
-    .gstline{font-size:11.5px;color:#333;margin-top:8px;font-weight:600;}
-    .metagrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;margin-bottom:16px;background:#FBF7EF;border:1px solid #E4DCC8;border-radius:6px;padding:12px 16px;}
-    .metagrid .mi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8a8a8a;margin-bottom:1px;}
-    .metagrid .mi b{font-size:12.5px;color:#1c1c1c;}
-    .custblock{border:1px solid #E4DCC8;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;background:#fff;}
-    .custblock .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#8a8a8a;font-weight:700;margin-bottom:4px;}
+    .doctag{display:inline-block;background:#000;color:#fff;font-size:11px;font-weight:700;letter-spacing:.09em;padding:5px 14px;border-radius:4px;text-transform:uppercase;}
+    .doctag.kot{background:#000;}
+    .gstline{font-size:11.5px;color:#000;margin-top:8px;font-weight:700;}
+    .metagrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;margin-bottom:16px;background:#fff;border:1px solid #000;border-radius:6px;padding:12px 16px;}
+    .metagrid .mi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:1px;}
+    .metagrid .mi b{font-size:12.5px;color:#000;}
+    .custblock{border:1px solid #000;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;background:#fff;}
+    .custblock .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#555;font-weight:700;margin-bottom:4px;}
     table.items{width:100%;border-collapse:collapse;margin-bottom:4px;font-size:12px;}
-    table.items thead th{background:#16302B;color:#fff;text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
-    table.items tbody td{padding:8px 9px;border-bottom:1px solid #EFE9D8;}
-    table.items tbody tr:nth-child(even){background:#FBF7EF;}
+    table.items thead th{background:#000;color:#fff;text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
+    table.items tbody td{padding:8px 9px;border-bottom:1px solid #ccc;}
+    table.items tbody tr:nth-child(even){background:#f5f5f5;}
     .num{text-align:right;}
     .ctr{text-align:center;}
     .totwrap{display:flex;justify-content:flex-end;margin-top:14px;}
     .totbox{width:290px;font-size:12.5px;}
     .totbox .trow{display:flex;justify-content:space-between;padding:4px 2px;}
-    .totbox .trow.grand{background:#16302B;color:#fff;border-radius:5px;padding:9px 10px;margin-top:6px;font-weight:700;font-size:15px;}
-    .totbox .trow.due{background:#FBEBD3;border-radius:5px;padding:7px 10px;margin-top:4px;font-weight:700;color:#B5691A;}
-    .wordsline{font-size:11.5px;color:#333;margin-top:10px;padding:8px 12px;background:#FBF7EF;border:1px solid #E4DCC8;border-radius:6px;}
-    .wordsline b{color:#16302B;}
-    .notebox{border-left:3px solid #B5691A;background:#FBF7EF;padding:8px 12px;font-size:11.5px;margin-top:16px;border-radius:0 4px 4px 0;}
-    .notebox .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#B5691A;font-weight:700;margin-bottom:2px;}
-    .terms{font-size:10px;color:#888;margin-top:22px;border-top:1px dashed #ccc;padding-top:10px;line-height:1.6;}
-    .terms b{color:#555;}
-    .thankyou{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#16302B;margin-top:14px;}
-    .signrow{display:flex;justify-content:space-between;margin-top:34px;font-size:11px;color:#555;}
-    .signrow div{border-top:1px solid #aaa;padding-top:4px;width:150px;text-align:center;}
+    .totbox .trow.grand{background:#000;color:#fff;border-radius:5px;padding:9px 10px;margin-top:6px;font-weight:700;font-size:15px;}
+    .totbox .trow.due{background:#fff;border:2px solid #000;border-radius:5px;padding:7px 10px;margin-top:4px;font-weight:700;color:#000;}
+    .wordsline{font-size:11.5px;color:#000;margin-top:10px;padding:8px 12px;background:#fff;border:1px solid #000;border-radius:6px;}
+    .wordsline b{color:#000;}
+    .notebox{border-left:3px solid #000;background:#f5f5f5;padding:8px 12px;font-size:11.5px;margin-top:16px;border-radius:0 4px 4px 0;}
+    .notebox .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#000;font-weight:700;margin-bottom:2px;}
+    .terms{font-size:10px;color:#333;margin-top:22px;border-top:1px dashed #000;padding-top:10px;line-height:1.6;}
+    .terms b{color:#000;}
+    .thankyou{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#000;margin-top:14px;}
+    .signrow{display:flex;justify-content:space-between;margin-top:34px;font-size:11px;color:#000;}
+    .signrow div{border-top:1px solid #000;padding-top:4px;width:150px;text-align:center;}
     @media print{ body{background:#fff;} .sheet{box-shadow:none;margin:0;max-width:100%;padding:14px 22px;} }
+  `;
+}
+/* ---- Format 2: Compact / Thermal style (58-80mm printers) ---- */
+function thermalStyleBlock(){
+  return `
+    *{box-sizing:border-box;}
+    body{font-family:'Courier New',monospace;padding:0;margin:0;color:#000;background:#fff;}
+    .tsheet{max-width:300px;margin:0 auto;padding:14px 12px;}
+    .tcenter{text-align:center;}
+    .thotel{font-weight:700;font-size:15px;text-transform:uppercase;}
+    .tsub{font-size:10.5px;margin-top:2px;}
+    .tline{border-top:1px dashed #000;margin:8px 0;}
+    .trow{display:flex;justify-content:space-between;font-size:11.5px;padding:1px 0;}
+    table.titems{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;}
+    table.titems th{border-bottom:1px solid #000;text-align:left;padding:3px 2px;font-size:10.5px;text-transform:uppercase;}
+    table.titems td{padding:3px 2px;vertical-align:top;}
+    .tnum{text-align:right;}
+    .tctr{text-align:center;}
+    .tgrand{font-weight:700;font-size:13.5px;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin-top:4px;}
+    .twords{font-size:10px;margin-top:6px;}
+    .tterms{font-size:9px;margin-top:10px;line-height:1.5;}
+    .tthanks{text-align:center;font-size:11px;margin-top:10px;font-weight:700;}
+    @media print{ body{background:#fff;} .tsheet{margin:0;} @page{ size:80mm auto; margin:2mm; } }
+  `;
+}
+/* ---- Format 3: Formal Bordered / Ledger style ---- */
+function formalStyleBlock(){
+  return `
+    *{box-sizing:border-box;}
+    body{font-family:Georgia,'Times New Roman',serif;padding:0;margin:0;color:#000;background:#fff;}
+    .fsheet{max-width:760px;margin:18px auto;padding:0;border:3px double #000;}
+    .finner{padding:26px 34px;}
+    .fhead{text-align:center;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:16px;}
+    .fhead img{height:54px;filter:grayscale(100%);margin-bottom:6px;}
+    .fhead h1{font-size:22px;margin:0;letter-spacing:.02em;text-transform:uppercase;}
+    .fhead .fsub{font-size:11px;margin-top:4px;color:#333;}
+    .fdoctag{display:inline-block;border:1.5px solid #000;padding:3px 16px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:8px;font-weight:700;}
+    .fmeta{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:14px;border-bottom:1px solid #000;padding-bottom:10px;flex-wrap:wrap;gap:6px;}
+    .fmeta div span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#555;}
+    .fcust{font-size:11.5px;margin-bottom:14px;border:1px solid #000;padding:9px 12px;}
+    .fcust .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700;margin-bottom:3px;}
+    table.fitems{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px;border:1px solid #000;}
+    table.fitems th{border:1px solid #000;padding:6px 8px;font-size:10px;text-transform:uppercase;text-align:left;background:#fff;}
+    table.fitems td{border:1px solid #000;padding:6px 8px;}
+    .fnum{text-align:right;}
+    .fctr{text-align:center;}
+    .ftotwrap{display:flex;justify-content:flex-end;}
+    .ftotbox{width:290px;font-size:12px;border:1px solid #000;}
+    .ftotbox .frow{display:flex;justify-content:space-between;padding:5px 10px;border-bottom:1px solid #000;}
+    .ftotbox .frow:last-child{border-bottom:none;}
+    .ftotbox .frow.fgrand{font-weight:700;font-size:14px;background:#f0f0f0;}
+    .fwords{font-size:11px;margin-top:12px;border-top:1px dashed #000;padding-top:8px;}
+    .fterms{font-size:9.5px;color:#333;margin-top:20px;border-top:1px solid #000;padding-top:8px;line-height:1.6;}
+    .fsignrow{display:flex;justify-content:space-between;margin-top:36px;font-size:11px;}
+    .fsignrow div{border-top:1px solid #000;padding-top:4px;width:150px;text-align:center;}
+    .fthanks{text-align:center;font-style:italic;font-size:12.5px;margin-top:16px;}
+    @media print{ .fsheet{border:2px double #000;margin:0;} }
   `;
 }
 function printKOTReceipt(){
@@ -1518,61 +1588,204 @@ async function confirmBill(){
 }
 
 /* ---------------- PRINT ---------------- */
-function printBillReceipt(sale){
+/* ---------------- MULTI-FORMAT B&W INVOICE SYSTEM ---------------- */
+function buildSaleInvoiceData(sale){
   const cgst = sale.taxAmt/2, sgst = sale.taxAmt/2, halfPct = (sale.taxPct/2).toFixed(2);
-  const linesHtml = sale.lines.map((l,i)=>{
-    const item = items.find(it=>it.id===l.itemId);
-    const hsn = item && item.hsn ? item.hsn : '-';
-    return `<tr><td>${i+1}</td><td>${l.name}</td><td class="ctr">${hsn}</td><td class="ctr">${l.qty}</td><td class="num">Rs ${Math.round(l.price)}</td><td class="num">Rs ${Math.round(l.total)}</td></tr>`;
-  }).join('');
+  return {
+    docTag: 'Tax Invoice',
+    metaRows: [
+      {label:'Bill No', value: sale.id},
+      {label:'Date &amp; Time', value: new Date(sale.date).toLocaleString('en-IN')},
+      {label:'Table / Counter', value: sale.tableName},
+      {label:'Served By', value: sale.staffName||'-'}
+    ],
+    customer: (sale.customerName||sale.customerPhone||sale.customerAddress||sale.customerGst) ? {name:sale.customerName, phone:sale.customerPhone, address:sale.customerAddress, gst:sale.customerGst, idLine:''} : null,
+    items: sale.lines.map((l,i)=>{
+      const item = items.find(it=>it.id===l.itemId);
+      return {sr:i+1, name:l.name, hsn: (item&&item.hsn)?item.hsn:'-', qty:l.qty, rate:Math.round(l.price), amount:Math.round(l.total)};
+    }),
+    subtotal: Math.round(sale.subtotal),
+    cgstPct: halfPct, cgstAmt: Math.round(cgst), sgstAmt: Math.round(sgst),
+    discountLabel: 'Discount'+(sale.discountType==='pct'?' ('+sale.discountValue+'%)':''),
+    discount: Math.round(sale.discount),
+    roundOff: sale.roundOff||0,
+    grandTotal: Math.round(sale.grandTotal),
+    paymentMode: sale.payment,
+    advance: null, balanceDue: null,
+    remark: sale.remark||'',
+    wordsText: amountInWords(sale.grandTotal),
+    terms: '1. Goods once sold will not be taken back or exchanged. 2. All disputes are subject to local jurisdiction only. 3. Please verify your bill before making payment. 4. This is a computer-generated invoice and does not require a signature.',
+    thanks: 'Thank you for dining with us. Visit again!',
+    printTitle: 'Invoice '+sale.id
+  };
+}
+function buildRoomInvoiceData(booking){
+  const cgst = (booking.taxAmt||0)/2, sgst = (booking.taxAmt||0)/2, halfPct = ((booking.taxPct||0)/2).toFixed(2);
+  const balanceDue = booking.balanceDue!==undefined ? booking.balanceDue : booking.grandTotal;
+  const roomItems = [{sr:1, name:'Room Charges - Room '+booking.roomNo+' ('+(booking.nights||0)+' night'+((booking.nights||0)>1?'s':'')+' x Rs '+Math.round(booking.ratePerNight||0)+')', hsn:'996311', qty:booking.nights||0, rate:Math.round(booking.ratePerNight||0), amount:Math.round(booking.roomTotal||0)}];
+  (booking.services||[]).forEach((sv,i)=> roomItems.push({sr:i+2, name:sv.name, hsn:'996331', qty:1, rate:Math.round(sv.amount), amount:Math.round(sv.amount)}));
+  return {
+    docTag: 'Room Bill / Tax Invoice',
+    metaRows: [
+      {label:'Room No', value: booking.roomNo},
+      {label:'Check-Out By', value: booking.checkedOutBy||'-'},
+      {label:'Check-In', value: new Date(booking.checkinDate).toLocaleString('en-IN')},
+      {label:'Check-Out', value: booking.checkoutDate ? new Date(booking.checkoutDate).toLocaleString('en-IN') : '-'}
+    ],
+    customer: {name:booking.guestName, phone:booking.guestPhone, address:booking.guestAddress, gst:booking.guestGst, idLine: booking.idType?(booking.idType+': '+(booking.idNo||'')):''},
+    items: roomItems,
+    subtotal: Math.round((booking.roomTotal||0)+(booking.servicesTotal||0)),
+    cgstPct: halfPct, cgstAmt: Math.round(cgst), sgstAmt: Math.round(sgst),
+    discountLabel: 'Discount',
+    discount: Math.round(booking.discount||0),
+    roundOff: booking.roundOff||0,
+    grandTotal: Math.round(booking.grandTotal||0),
+    paymentMode: booking.payment||'-',
+    advance: Math.round(booking.advance||0), balanceDue: Math.round(balanceDue||0),
+    remark: booking.remark||'',
+    wordsText: amountInWords(booking.grandTotal||0),
+    terms: '1. Check-out time is as per hotel policy; late check-out may attract extra charges. 2. Hotel is not responsible for loss of valuables left unattended in the room. 3. All disputes are subject to local jurisdiction only. 4. This is a computer-generated invoice and does not require a signature.',
+    thanks: 'Thank you for staying with us. We hope to welcome you again!',
+    printTitle: 'Room Invoice '+booking.roomNo
+  };
+}
+function renderFormat1(data){
+  const rowsHtml = data.metaRows.map(m=>`<div class="mi"><span>${m.label}</span><b>${m.value}</b></div>`).join('');
+  const itemsHtml = data.items.map(it=>`<tr><td>${it.sr}</td><td>${it.name}</td><td class="ctr">${it.hsn}</td><td class="ctr">${it.qty}</td><td class="num">Rs ${it.rate}</td><td class="num">Rs ${it.amount}</td></tr>`).join('');
   const body = `<div class="sheet">
       <div class="brandbar">
         <div class="left">
           ${settings.logo ? `<img class="logo" src="${settings.logo}">` : ''}
           <div>
             <h1>${settings.hotelName||'Hotel'}</h1>
-            <div class="taglinerow">
-              ${settings.address ? settings.address+'<br>' : ''}
-              ${settings.phone ? 'Ph: '+settings.phone : ''}
-            </div>
+            <div class="taglinerow">${settings.address ? settings.address+'<br>' : ''}${settings.phone ? 'Ph: '+settings.phone : ''}</div>
             <div class="gstline">GSTIN: ${settings.gstNo || 'Not Registered'}</div>
           </div>
         </div>
-        <div class="right"><span class="doctag">Tax Invoice</span></div>
+        <div class="right"><span class="doctag">${data.docTag}</span></div>
       </div>
-      <div class="metagrid">
-        <div class="mi"><span>Bill No</span><b>${sale.id}</b></div>
-        <div class="mi"><span>Date &amp; Time</span><b>${new Date(sale.date).toLocaleString('en-IN')}</b></div>
-        <div class="mi"><span>Table / Counter</span><b>${sale.tableName}</b></div>
-        <div class="mi"><span>Served By</span><b>${sale.staffName||'-'}</b></div>
-      </div>
-      ${(sale.customerName || sale.customerPhone || sale.customerAddress || sale.customerGst) ? `
-      <div class="custblock">
-        <div class="lbl">Bill To</div>
-        ${sale.customerName ? '<b>'+sale.customerName+'</b><br>' : ''}
-        ${sale.customerPhone ? 'Ph: '+sale.customerPhone+'<br>' : ''}
-        ${sale.customerAddress ? sale.customerAddress+'<br>' : ''}
-        ${sale.customerGst ? 'GSTIN: '+sale.customerGst : ''}
+      <div class="metagrid">${rowsHtml}</div>
+      ${data.customer ? `<div class="custblock">
+        <div class="lbl">${data.docTag.indexOf('Room')>-1?'Guest Details':'Bill To'}</div>
+        ${data.customer.name ? '<b>'+data.customer.name+'</b><br>' : ''}
+        ${data.customer.phone ? 'Ph: '+data.customer.phone+'<br>' : ''}
+        ${data.customer.idLine ? data.customer.idLine+'<br>' : ''}
+        ${data.customer.address ? data.customer.address+'<br>' : ''}
+        ${data.customer.gst ? 'GSTIN: '+data.customer.gst : ''}
       </div>` : ''}
       <table class="items"><thead><tr><th>Sr</th><th>Item</th><th class="ctr">HSN</th><th class="ctr">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
-      <tbody>${linesHtml}</tbody></table>
+      <tbody>${itemsHtml}</tbody></table>
       <div class="totwrap"><div class="totbox">
-        <div class="trow"><span>Subtotal</span><span>Rs ${Math.round(sale.subtotal)}</span></div>
-        <div class="trow"><span>CGST (${halfPct}%)</span><span>Rs ${Math.round(cgst)}</span></div>
-        <div class="trow"><span>SGST (${halfPct}%)</span><span>Rs ${Math.round(sgst)}</span></div>
-        <div class="trow"><span>Discount${sale.discountType==='pct' ? ' ('+sale.discountValue+'%)' : ''}</span><span>-Rs ${Math.round(sale.discount)}</span></div>
-        <div class="trow"><span>Round Off</span><span>${(sale.roundOff>=0?'+':'')+(sale.roundOff||0).toFixed(2)}</span></div>
-        <div class="trow grand"><span>Grand Total</span><span>Rs ${Math.round(sale.grandTotal)}</span></div>
-        <div class="trow" style="margin-top:6px;"><span>Payment Mode</span><span>${sale.payment}</span></div>
+        <div class="trow"><span>Subtotal</span><span>Rs ${data.subtotal}</span></div>
+        <div class="trow"><span>CGST (${data.cgstPct}%)</span><span>Rs ${data.cgstAmt}</span></div>
+        <div class="trow"><span>SGST (${data.cgstPct}%)</span><span>Rs ${data.sgstAmt}</span></div>
+        <div class="trow"><span>${data.discountLabel}</span><span>-Rs ${data.discount}</span></div>
+        <div class="trow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
+        <div class="trow grand"><span>Grand Total</span><span>Rs ${data.grandTotal}</span></div>
+        ${data.advance!==null ? `<div class="trow" style="margin-top:6px;"><span>Advance Paid</span><span>-Rs ${data.advance}</span></div><div class="trow due"><span>Balance Due</span><span>Rs ${data.balanceDue}</span></div>` : ''}
+        <div class="trow" style="margin-top:6px;"><span>Payment Mode</span><span>${data.paymentMode}</span></div>
       </div></div>
-      <div class="wordsline"><b>Amount in Words:</b> ${amountInWords(sale.grandTotal)}</div>
-      ${sale.remark ? `<div class="notebox"><div class="lbl">Remark</div>${sale.remark}</div>` : ''}
-      <div class="terms">
-        <b>Terms &amp; Conditions:</b> 1. Goods once sold will not be taken back or exchanged. 2. All disputes are subject to local jurisdiction only. 3. Please verify your bill before making payment. 4. This is a computer-generated invoice and does not require a signature.
-      </div>
-      <div class="thankyou">Thank you for dining with us. Visit again!</div>
+      <div class="wordsline"><b>Amount in Words:</b> ${data.wordsText}</div>
+      ${data.remark ? `<div class="notebox"><div class="lbl">Remark</div>${data.remark}</div>` : ''}
+      <div class="terms"><b>Terms &amp; Conditions:</b> ${data.terms}</div>
+      <div class="thankyou">${data.thanks}</div>
     </div>`;
-  printDocument('Invoice '+sale.id, invoiceStyleBlock(), body);
+  return {style: invoiceStyleBlock(), body};
+}
+function renderFormat2(data){
+  const itemsHtml = data.items.map(it=>`<tr><td>${it.name}<br><span style="font-size:9.5px;">${it.qty} x ${it.rate}</span></td><td class="tnum">${it.amount}</td></tr>`).join('');
+  const body = `<div class="tsheet">
+      <div class="tcenter thotel">${settings.hotelName||'Hotel'}</div>
+      <div class="tcenter tsub">${settings.address||''}</div>
+      <div class="tcenter tsub">${settings.phone?'Ph: '+settings.phone:''}${settings.gstNo?' | GSTIN: '+settings.gstNo:''}</div>
+      <div class="tline"></div>
+      ${data.metaRows.map(m=>`<div class="trow"><span>${m.label}</span><span>${m.value}</span></div>`).join('')}
+      <div class="tline"></div>
+      ${data.customer ? `<div style="font-size:11px;">${data.customer.name?data.customer.name+'<br>':''}${data.customer.phone?'Ph: '+data.customer.phone:''}</div><div class="tline"></div>` : ''}
+      <table class="titems"><thead><tr><th>Item</th><th class="tnum">Amt</th></tr></thead>
+      <tbody>${itemsHtml}</tbody></table>
+      <div class="tline"></div>
+      <div class="trow"><span>Subtotal</span><span>${data.subtotal}</span></div>
+      <div class="trow"><span>CGST+SGST</span><span>${data.cgstAmt+data.sgstAmt}</span></div>
+      <div class="trow"><span>${data.discountLabel}</span><span>-${data.discount}</span></div>
+      <div class="trow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
+      <div class="tgrand trow"><span>GRAND TOTAL</span><span>Rs ${data.grandTotal}</span></div>
+      ${data.advance!==null ? `<div class="trow"><span>Advance Paid</span><span>-${data.advance}</span></div><div class="trow" style="font-weight:700;"><span>Balance Due</span><span>${data.balanceDue}</span></div>` : ''}
+      <div class="trow"><span>Payment</span><span>${data.paymentMode}</span></div>
+      <div class="twords">${data.wordsText}</div>
+      ${data.remark ? `<div class="twords">Remark: ${data.remark}</div>` : ''}
+      <div class="tterms">${data.terms}</div>
+      <div class="tthanks">${data.thanks}</div>
+    </div>`;
+  return {style: thermalStyleBlock(), body};
+}
+function renderFormat3(data){
+  const metaHtml = data.metaRows.map(m=>`<div><span>${m.label}</span><b>${m.value}</b></div>`).join('');
+  const itemsHtml = data.items.map(it=>`<tr><td>${it.sr}</td><td>${it.name}</td><td class="fctr">${it.hsn}</td><td class="fctr">${it.qty}</td><td class="fnum">Rs ${it.rate}</td><td class="fnum">Rs ${it.amount}</td></tr>`).join('');
+  const body = `<div class="fsheet"><div class="finner">
+      <div class="fhead">
+        ${settings.logo ? `<img src="${settings.logo}">` : ''}
+        <h1>${settings.hotelName||'Hotel'}</h1>
+        <div class="fsub">${settings.address||''}${settings.phone?' | Ph: '+settings.phone:''}</div>
+        <div class="fsub">GSTIN: ${settings.gstNo||'Not Registered'}</div>
+        <div class="fdoctag">${data.docTag}</div>
+      </div>
+      <div class="fmeta">${metaHtml}</div>
+      ${data.customer ? `<div class="fcust">
+        <div class="lbl">${data.docTag.indexOf('Room')>-1?'Guest Details':'Bill To'}</div>
+        ${data.customer.name?data.customer.name+'<br>':''}${data.customer.phone?'Ph: '+data.customer.phone+'<br>':''}${data.customer.idLine?data.customer.idLine+'<br>':''}${data.customer.address?data.customer.address+'<br>':''}${data.customer.gst?'GSTIN: '+data.customer.gst:''}
+      </div>` : ''}
+      <table class="fitems"><thead><tr><th>Sr</th><th>Description</th><th class="fctr">HSN</th><th class="fctr">Qty</th><th class="fnum">Rate</th><th class="fnum">Amount</th></tr></thead>
+      <tbody>${itemsHtml}</tbody></table>
+      <div class="ftotwrap"><div class="ftotbox">
+        <div class="frow"><span>Subtotal</span><span>Rs ${data.subtotal}</span></div>
+        <div class="frow"><span>CGST (${data.cgstPct}%)</span><span>Rs ${data.cgstAmt}</span></div>
+        <div class="frow"><span>SGST (${data.cgstPct}%)</span><span>Rs ${data.sgstAmt}</span></div>
+        <div class="frow"><span>${data.discountLabel}</span><span>-Rs ${data.discount}</span></div>
+        <div class="frow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
+        <div class="frow fgrand"><span>Grand Total</span><span>Rs ${data.grandTotal}</span></div>
+        ${data.advance!==null ? `<div class="frow"><span>Advance Paid</span><span>-Rs ${data.advance}</span></div><div class="frow" style="font-weight:700;"><span>Balance Due</span><span>Rs ${data.balanceDue}</span></div>` : ''}
+        <div class="frow"><span>Payment Mode</span><span>${data.paymentMode}</span></div>
+      </div></div>
+      <div class="fwords"><b>Amount in Words:</b> ${data.wordsText}</div>
+      ${data.remark ? `<div class="fwords"><b>Remark:</b> ${data.remark}</div>` : ''}
+      <div class="fterms"><b>Terms &amp; Conditions:</b> ${data.terms}</div>
+      <div class="fsignrow"><div>Guest / Customer Signature</div><div>Authorised Signatory</div></div>
+      <div class="fthanks">${data.thanks}</div>
+    </div></div>`;
+  return {style: formalStyleBlock(), body};
+}
+function chooseAndPrintInvoice(data){
+  window._pendingInvoiceData = data;
+  const lastFormat = settings.billFormat || 1;
+  const formats = [
+    {id:1, title:'Format 1 - Detailed Classic', desc:'Poora itemized table, GST breakdown, terms & conditions. A4 print ke liye best.'},
+    {id:2, title:'Format 2 - Compact / Thermal', desc:'Chhoti thermal printer (58/80mm) ya kam kagaz istemal karne ke liye compact receipt.'},
+    {id:3, title:'Format 3 - Formal Bordered', desc:'Classic double-border formal invoice, signature line ke saath.'}
+  ];
+  document.getElementById('formatModalBody').innerHTML = `
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-4px;">Bill sirf black &amp; white mein print hoga (ink bachane ke liye). Format chunein:</p>
+    ${formats.map(f=>`<button class="formatcard ${lastFormat==f.id?'active':''}" onclick="printInvoiceWithFormat(${f.id})">
+      <div class="fc-title">${f.title}</div>
+      <div class="fc-desc">${f.desc}</div>
+    </button>`).join('')}
+  `;
+  document.getElementById('formatOverlay').classList.add('active');
+}
+async function printInvoiceWithFormat(formatId){
+  const data = window._pendingInvoiceData;
+  if(!data) return;
+  settings.billFormat = formatId;
+  await persist('settings');
+  document.getElementById('formatOverlay').classList.remove('active');
+  let r;
+  if(formatId===2) r = renderFormat2(data);
+  else if(formatId===3) r = renderFormat3(data);
+  else r = renderFormat1(data);
+  printDocument(data.printTitle, r.style, r.body);
+}
+function printBillReceipt(sale){
+  chooseAndPrintInvoice(buildSaleInvoiceData(sale));
 }
 function printSaleById(saleId){
   const sale = sales.find(s=>s.id===saleId);
@@ -2186,60 +2399,7 @@ function reprintRoomBill(bookingId){
   printRoomBill(booking);
 }
 function printRoomBill(booking){
-  const cgst = (booking.taxAmt||0)/2, sgst = (booking.taxAmt||0)/2, halfPct = ((booking.taxPct||0)/2).toFixed(2);
-  const roomLine = `<tr><td>1</td><td>Room Charges - Room ${booking.roomNo} (${booking.nights||0} night${(booking.nights||0)>1?'s':''} x Rs ${Math.round(booking.ratePerNight||0)})</td><td class="ctr">${booking.nights||0}</td><td class="num">Rs ${Math.round(booking.ratePerNight||0)}</td><td class="num">Rs ${Math.round(booking.roomTotal||0)}</td></tr>`;
-  const serviceLines = (booking.services||[]).map((sv,i)=>`<tr><td>${i+2}</td><td>${sv.name}</td><td class="ctr">1</td><td class="num">Rs ${Math.round(sv.amount)}</td><td class="num">Rs ${Math.round(sv.amount)}</td></tr>`).join('');
-  const balanceDue = booking.balanceDue!==undefined ? booking.balanceDue : booking.grandTotal;
-  const body = `<div class="sheet">
-      <div class="brandbar">
-        <div class="left">
-          ${settings.logo ? `<img class="logo" src="${settings.logo}">` : ''}
-          <div>
-            <h1>${settings.hotelName||'Hotel'}</h1>
-            <div class="taglinerow">
-              ${settings.address ? settings.address+'<br>' : ''}
-              ${settings.phone ? 'Ph: '+settings.phone : ''}
-            </div>
-            <div class="gstline">GSTIN: ${settings.gstNo || 'Not Registered'}</div>
-          </div>
-        </div>
-        <div class="right"><span class="doctag">Room Bill / Tax Invoice</span></div>
-      </div>
-      <div class="metagrid">
-        <div class="mi"><span>Room No</span><b>${booking.roomNo}</b></div>
-        <div class="mi"><span>Check-Out By</span><b>${booking.checkedOutBy||'-'}</b></div>
-        <div class="mi"><span>Check-In</span><b>${new Date(booking.checkinDate).toLocaleString('en-IN')}</b></div>
-        <div class="mi"><span>Check-Out</span><b>${booking.checkoutDate ? new Date(booking.checkoutDate).toLocaleString('en-IN') : '-'}</b></div>
-      </div>
-      <div class="custblock">
-        <div class="lbl">Guest Details</div>
-        <b>${booking.guestName}</b><br>
-        ${booking.guestPhone?('Ph: '+booking.guestPhone+'<br>'):''}
-        ${booking.idType?((booking.idType)+': '+(booking.idNo||'')+'<br>'):''}
-        ${booking.guestAddress?(booking.guestAddress+'<br>'):''}
-        ${booking.guestGst?('GSTIN: '+booking.guestGst):''}
-      </div>
-      <table class="items"><thead><tr><th>Sr</th><th>Description</th><th class="ctr">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
-      <tbody>${roomLine}${serviceLines}</tbody></table>
-      <div class="totwrap"><div class="totbox">
-        <div class="trow"><span>Room + Service Charges</span><span>Rs ${Math.round((booking.roomTotal||0)+(booking.servicesTotal||0))}</span></div>
-        <div class="trow"><span>CGST (${halfPct}%)</span><span>Rs ${Math.round(cgst)}</span></div>
-        <div class="trow"><span>SGST (${halfPct}%)</span><span>Rs ${Math.round(sgst)}</span></div>
-        <div class="trow"><span>Discount</span><span>-Rs ${Math.round(booking.discount||0)}</span></div>
-        <div class="trow"><span>Round Off</span><span>${(booking.roundOff>=0?'+':'')+(booking.roundOff||0).toFixed(2)}</span></div>
-        <div class="trow grand"><span>Grand Total</span><span>Rs ${Math.round(booking.grandTotal||0)}</span></div>
-        <div class="trow" style="margin-top:6px;"><span>Advance Paid</span><span>-Rs ${Math.round(booking.advance||0)}</span></div>
-        <div class="trow due"><span>Balance Due</span><span>Rs ${Math.round(balanceDue||0)}</span></div>
-        <div class="trow" style="margin-top:6px;"><span>Payment Mode</span><span>${booking.payment||'-'}</span></div>
-      </div></div>
-      <div class="wordsline"><b>Amount in Words:</b> ${amountInWords(booking.grandTotal||0)}</div>
-      ${booking.remark ? `<div class="notebox"><div class="lbl">Remark</div>${booking.remark}</div>` : ''}
-      <div class="terms">
-        <b>Terms &amp; Conditions:</b> 1. Check-out time is as per hotel policy; late check-out may attract extra charges. 2. Hotel is not responsible for loss of valuables left unattended in the room. 3. All disputes are subject to local jurisdiction only. 4. This is a computer-generated invoice and does not require a signature.
-      </div>
-      <div class="thankyou">Thank you for staying with us. We hope to welcome you again!</div>
-    </div>`;
-  printDocument('Room Invoice '+booking.roomNo, invoiceStyleBlock(), body);
+  chooseAndPrintInvoice(buildRoomInvoiceData(booking));
 }
 
 /* ---------------- STOCK ---------------- */
