@@ -6,6 +6,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase (Firestore) - used so data is saved online and survives refresh/reinstall. Fill YOUR project config in the FIREBASE_CONFIG block near the top of the main script section below. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#FBF7EF; --paper:#FFFFFF; --ink:#16302B; --ink-soft:#4B615B;
@@ -320,9 +323,13 @@
         <h2 class="sectitle">Theme Chunein</h2>
         <div class="theme-row" id="themeRow"></div>
       </div>
+      <div class="panel" id="cloudStatusPanel">
+        <h2 class="sectitle">Online Data Storage Status</h2>
+        <div id="cloudStatusBox"></div>
+      </div>
       <div class="panel" id="backupPanel">
         <h2 class="sectitle">Data Backup / Dusre Computer Pe Transfer</h2>
-        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">Ye software is browser/computer mein hi data save karta hai. Dusre computer pe wahi data lejane ke liye: yahan se poora data download karein, phir dusre computer par ye file "Import" kar dein.</p>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">Yahan se poora data download karke kabhi bhi backup rakh sakte hain, ya dusre computer/browser par import kar sakte hain (agar Firebase connect nahi hai).</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button class="btn accent" onclick="exportAllData()">Poora Data Download Karein</button>
           <label class="btn ghost" style="cursor:pointer;">Doosre PC Ka Data Import Karein<input type="file" accept=".json" style="display:none" onchange="importAllDataFile(this)"></label>
@@ -389,6 +396,34 @@
 </div>
 
 <script>
+/* ================================================================
+   FIREBASE CONFIG - PASTE YOUR OWN PROJECT CONFIG HERE
+   Firebase Console > Project Settings > General > Your apps > SDK setup and configuration > Config
+   Jab tak yahan sahi config nahi daalenge, app apne aap browser ke
+   localStorage mein data save karega (jo sirf usi browser/device tak
+   limited rehta hai). Sahi config daalte hi data Firestore (cloud)
+   mein online save hone lagega aur kisi bhi device se same data
+   dikhega, chahe browser cache/history clear ho jaye.
+   ================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  projectId: "PASTE_YOUR_PROJECT_ID",
+  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId: "PASTE_YOUR_APP_ID"
+};
+let firestoreDb = null;
+let firebaseReady = false;
+try{
+  const cfgLooksReal = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_') && typeof firebase !== 'undefined';
+  if(cfgLooksReal){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firestoreDb = firebase.firestore();
+    firebaseReady = true;
+  }
+}catch(e){ console.error('Firebase init failed, falling back to localStorage', e); firebaseReady = false; }
+
 /* ---------------- STATE ---------------- */
 let items = [], tables = [], orders = [], sales = [], stockMoves = [];
 let users = [], settings = null;
@@ -439,22 +474,26 @@ function applyTheme(key){
   r.setProperty('--sidebar', t.sidebar); r.setProperty('--sidebar-soft', t.sidebarSoft);
 }
 
-/* ---------------- STORAGE ---------------- */
-const hasCloudStorage = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+/* ---------------- STORAGE ----------------
+   Priority: Firestore (online, survives refresh/reinstall/device change)
+   Fallback: browser localStorage (only works on the same browser/device)
+------------------------------------------------------------------- */
+const FIRESTORE_COLLECTION = 'hotel_data';
 
 async function storeGet(key){
-  if(hasCloudStorage){
-    const r = await window.storage.get(key, true);
-    return {value: r.value, version: r.version};
+  if(firebaseReady){
+    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).get();
+    if(!doc.exists) throw new Error('not found: '+key);
+    return {value: doc.data().value, version: 'firestore'};
   }
   const v = localStorage.getItem(key);
   if(v===null) throw new Error('not found: '+key);
   return {value:v, version:'local'};
 }
 async function storeSet(key, value){
-  if(hasCloudStorage){
-    const w = await window.storage.set(key, value, true);
-    return w ? w.version : 'new';
+  if(firebaseReady){
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).set({value, updatedAt: new Date().toISOString()});
+    return 'firestore';
   }
   localStorage.setItem(key, value);
   return 'local';
@@ -573,6 +612,7 @@ async function submitSetup(){
   users.push(master);
   await persist('users');
   currentUser = master;
+  saveSession(master.id);
   enterApp();
 }
 async function submitLogin(){
@@ -584,10 +624,18 @@ async function submitLogin(){
     return;
   }
   currentUser = u;
+  saveSession(u.id);
   enterApp();
+}
+function saveSession(userId){
+  try{ localStorage.setItem('hms_session_user_id', userId); }catch(e){}
+}
+function clearSession(){
+  try{ localStorage.removeItem('hms_session_user_id'); }catch(e){}
 }
 function logout(){
   currentUser = null;
+  clearSession();
   document.getElementById('authOverlay').classList.remove('hidden');
   renderAuthScreen();
 }
@@ -724,6 +772,21 @@ function renderSettings(){
   document.getElementById('userMgmtPanel').style.display = isMaster() ? 'block' : 'none';
   document.getElementById('backupPanel').style.display = isMaster() ? 'block' : 'none';
   if(isMaster()) renderUsers();
+
+  const statusBox = document.getElementById('cloudStatusBox');
+  if(statusBox){
+    if(firebaseReady){
+      statusBox.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
+        <span class="pill good">Firebase Connected</span>
+        <span style="font-size:12.5px;color:var(--ink-soft);">Aapka data ab online (Firestore) mein save ho raha hai — kisi bhi device se same data dikhega, browser data clear hone par bhi kuch nahi jayega.</span>
+      </div>`;
+    } else {
+      statusBox.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="pill warn">Local Storage Mode (Firebase Not Connected)</span>
+        <span style="font-size:12.5px;color:var(--ink-soft);">Data abhi is browser/device mein hi save ho raha hai. Online rakhne ke liye HTML file ke andar FIREBASE_CONFIG mein apna Firebase project ki details daalein (Master ID se GitHub par developer se karwa sakte hain), phir dobara publish karein.</span>
+      </div>`;
+    }
+  }
 }
 async function saveBusinessInfo(){
   if(!isMaster()){ alert('Sirf Master ID hotel ki jaankari/theme/logo edit kar sakti hai.'); return; }
@@ -2537,10 +2600,20 @@ function printReportPDF(){
   tickClock();
   applyTheme(settings.theme || 'saffron');
   updateBrand();
-  renderAuthScreen();
   document.getElementById('orderOverlay').addEventListener('click', (e)=>{
     if(e.target.id==='orderOverlay') closeOrderModal();
   });
+
+  /* Restore previous login session (so refresh doesn't log the user out) */
+  let sessionUserId = null;
+  try{ sessionUserId = localStorage.getItem('hms_session_user_id'); }catch(e){}
+  const sessionUser = sessionUserId ? users.find(u=>u.id===sessionUserId) : null;
+  if(sessionUser){
+    currentUser = sessionUser;
+    enterApp();
+  } else {
+    renderAuthScreen();
+  }
 })();
 </script>
 </body>
