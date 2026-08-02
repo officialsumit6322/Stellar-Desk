@@ -422,7 +422,7 @@
    dikhega, chahe browser cache/history clear ho jaye.
   const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAFlw2K5Zy-yKh2Q_bek1QJ45R0G1_0EW4",
-  authDomain: "://firebaseapp.com",
+  authDomain: "control-tower-admin-47866.firebaseapp.com",
   projectId: "control-tower-admin-47866",
   storageBucket: "control-tower-admin-47866.firebasestorage.app",
   messagingSenderId: "813417101434",
