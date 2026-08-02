@@ -420,14 +420,15 @@
    limited rehta hai). Sahi config daalte hi data Firestore (cloud)
    mein online save hone lagega aur kisi bhi device se same data
    dikhega, chahe browser cache/history clear ho jaye.
-   ================================================================ */
-const FIREBASE_CONFIG = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_YOUR_SENDER_ID",
-  appId: "PASTE_YOUR_APP_ID"
+  const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAFlw2K5Zy-yKh2Q_bek1QJ45R0G1_0EW4",
+  authDomain: "://firebaseapp.com",
+  projectId: "control-tower-admin-47866",
+  storageBucket: "control-tower-admin-47866.firebasestorage.app",
+  messagingSenderId: "813417101434",
+  appId: "1:813417101434:web:2f2fb11c47ed3ae6223c3",
+  measurementId: "G-G539MHMBR6"
+};
 };
 let firestoreDb = null;
 let firebaseReady = false;
