@@ -86,6 +86,8 @@
   .tablecard.free{border-left:5px solid var(--good);}
   .tablecard.occupied{border-left:5px solid var(--accent);background:var(--accent-bg);}
   .tablecard.cleaning{border-left:5px solid #9B6B1F;background:#FBF2E2;}
+  .tablecard.active{border-left:5px solid var(--good);background:var(--good);}
+  .tablecard.active .tname,.tablecard.active .tstatus,.tablecard.active .tamount{color:#fff;}
   .tablecard .tname{font-family:var(--display);font-size:17px;font-weight:600;}
   .tablecard .tstatus{font-size:12px;margin-top:4px;color:var(--ink-soft);}
   .tablecard .tamount{font-family:var(--mono);font-size:14px;margin-top:8px;font-weight:700;}
@@ -135,12 +137,17 @@
   .barwrap{background:var(--line-soft);border-radius:6px;height:8px;overflow:hidden;margin-top:4px;width:100%;}
   .barfill{height:100%;background:var(--accent);}
 
-  .theme-row{display:flex;gap:12px;flex-wrap:wrap;}
-  .theme-swatch{width:100px;border-radius:10px;border:2px solid var(--line);cursor:pointer;overflow:hidden;padding:0;background:none;}
-  .theme-swatch.active{border-color:var(--ink);}
-  .theme-swatch .sw-top{height:36px;display:flex;}
-  .theme-swatch .sw-top div{flex:1;}
-  .theme-swatch .sw-label{font-size:11.5px;padding:6px;text-align:center;font-weight:600;background:#fff;color:#222;}
+  .theme-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .theme-swatch{width:150px;border-radius:14px;border:2px solid var(--line);cursor:pointer;overflow:hidden;padding:0;background:#fff;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  .theme-swatch:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,0.12);}
+  .theme-swatch.active{border-color:var(--ink);box-shadow:0 0 0 3px var(--accent-bg),0 8px 18px rgba(0,0,0,0.12);}
+  .theme-swatch .sw-top{height:64px;position:relative;overflow:hidden;}
+  .theme-swatch .sw-top .sw-bg{position:absolute;inset:0;}
+  .theme-swatch .sw-top .sw-accentbar{position:absolute;left:0;right:0;bottom:0;height:10px;}
+  .theme-swatch .sw-top .sw-dot{position:absolute;top:8px;left:8px;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,0.6);}
+  .theme-swatch .sw-check{position:absolute;top:6px;right:8px;width:20px;height:20px;border-radius:50%;background:#fff;color:var(--ink);font-size:12px;font-weight:800;display:none;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);}
+  .theme-swatch.active .sw-check{display:flex;}
+  .theme-swatch .sw-label{font-size:12.5px;padding:9px 6px;text-align:center;font-weight:700;background:#fff;color:#222;font-family:var(--display);letter-spacing:.01em;}
 
   .formatcard{border:2px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;background:#fff;text-align:left;width:100%;margin-bottom:10px;display:block;}
   .formatcard:hover{border-color:var(--accent);}
@@ -186,6 +193,9 @@
   <div class="sidebar-foot">
     <span class="who" id="whoBox">-</span>
     <button class="logout-btn" onclick="logout()">Logout</button>
+    <div style="text-align:center;margin-top:8px;">
+      <a href="#" style="font-size:10.5px;color:rgba(159,196,185,0.7);" onclick="event.preventDefault();switchClient();">Doosra Restaurant (Client ID)</a>
+    </div>
   </div>
 </aside>
 
@@ -431,6 +441,7 @@ const FIREBASE_CONFIG = {
 };
 let firestoreDb = null;
 let firebaseReady = false;
+let clientId = '', clientKey = '';
 try{
   const cfgLooksReal = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_') && typeof firebase !== 'undefined';
   if(cfgLooksReal){
@@ -466,7 +477,9 @@ const THEMES = {
   royal:{name:'Royal Blue', bg:'#F5F6FA', paper:'#FFFFFF', ink:'#1B2A4A', inkSoft:'#51608A', line:'#DCE1EC', lineSoft:'#EAEEF7', accent:'#3E6AE1', accentDeep:'#28439C', accentBg:'#E4EBFC', sidebar:'#101A33', sidebarSoft:'#A9BEEA'},
   maroon:{name:'Maroon', bg:'#FBF3EF', paper:'#FFFFFF', ink:'#3B1418', inkSoft:'#7A4F52', line:'#EBD9D4', lineSoft:'#F5E9E6', accent:'#B23B3B', accentDeep:'#7E2626', accentBg:'#F6DEDD', sidebar:'#2C0F12', sidebarSoft:'#DDB0AF'},
   emerald:{name:'Emerald', bg:'#F3FAF6', paper:'#FFFFFF', ink:'#0E3B2E', inkSoft:'#3E6C5C', line:'#D9EFE3', lineSoft:'#E8F6EF', accent:'#1F9D66', accentDeep:'#136B45', accentBg:'#DDF3E7', sidebar:'#08261D', sidebarSoft:'#A9DCC3'},
-  midnight:{name:'Midnight Dark', bg:'#161A20', paper:'#1F252E', ink:'#EDEFF3', inkSoft:'#A8B0BE', line:'#333B47', lineSoft:'#2A303A', accent:'#E0932E', accentDeep:'#F2A94A', accentBg:'#3A2B14', sidebar:'#0D1015', sidebarSoft:'#8FA396'}
+  midnight:{name:'Midnight Dark', bg:'#161A20', paper:'#1F252E', ink:'#EDEFF3', inkSoft:'#A8B0BE', line:'#333B47', lineSoft:'#2A303A', accent:'#E0932E', accentDeep:'#F2A94A', accentBg:'#3A2B14', sidebar:'#0D1015', sidebarSoft:'#8FA396'},
+  orchid:{name:'Plum Orchid', bg:'#FBF5FA', paper:'#FFFFFF', ink:'#3A1233', inkSoft:'#7A4C71', line:'#EEDCEA', lineSoft:'#F6EAF3', accent:'#A6408E', accentDeep:'#7A2B68', accentBg:'#F3DDEE', sidebar:'#2B0D26', sidebarSoft:'#D9AACE'},
+  teal:{name:'Ocean Teal', bg:'#F1FAFA', paper:'#FFFFFF', ink:'#0C3436', inkSoft:'#3E6D6F', line:'#D6EEEE', lineSoft:'#E7F6F6', accent:'#159A9C', accentDeep:'#0E6E70', accentBg:'#D6F1F1', sidebar:'#062526', sidebarSoft:'#9FD4D4'}
 };
 
 function isMaster(){ return !!(currentUser && currentUser.role==='master'); }
@@ -497,22 +510,41 @@ function applyTheme(key){
 const FIRESTORE_COLLECTION = 'hotel_data';
 
 async function storeGet(key){
+  const fullKey = (clientId ? clientId+'__' : '') + key;
   if(firebaseReady){
-    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).get();
-    if(!doc.exists) throw new Error('not found: '+key);
+    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(fullKey).get();
+    if(!doc.exists) throw new Error('not found: '+fullKey);
     return {value: doc.data().value, version: 'firestore'};
   }
-  const v = localStorage.getItem(key);
-  if(v===null) throw new Error('not found: '+key);
+  const v = localStorage.getItem(fullKey);
+  if(v===null) throw new Error('not found: '+fullKey);
   return {value:v, version:'local'};
 }
 async function storeSet(key, value){
+  const fullKey = (clientId ? clientId+'__' : '') + key;
   if(firebaseReady){
-    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).set({value, updatedAt: new Date().toISOString()});
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(fullKey).set({value, updatedAt: new Date().toISOString()});
     return 'firestore';
   }
-  localStorage.setItem(key, value);
+  localStorage.setItem(fullKey, value);
   return 'local';
+}
+async function clientMetaGet(cid){
+  if(firebaseReady){
+    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(cid+'__meta').get();
+    return doc.exists ? doc.data() : null;
+  }
+  try{
+    const raw = localStorage.getItem('hms_client_meta_'+cid);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+async function clientMetaSet(cid, data){
+  if(firebaseReady){
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(cid+'__meta').set(data);
+  } else {
+    try{ localStorage.setItem('hms_client_meta_'+cid, JSON.stringify(data)); }catch(e){}
+  }
 }
 
 async function loadState(){
@@ -576,6 +608,84 @@ async function persist(key){
     const v = await storeSet(KEYS[key], JSON.stringify(map[key]));
     versions[key] = v;
   }catch(e){ console.error('save failed', key, e); }
+}
+
+/* ---------------- CLIENT (RESTAURANT TENANT) GATE ---------------- */
+function renderClientGate(mode){
+  mode = mode || 'choose';
+  const overlay = document.getElementById('authOverlay');
+  overlay.classList.remove('hidden');
+  if(mode==='choose'){
+    document.getElementById('authTitle').textContent = 'Restaurant Client Access';
+    document.getElementById('authSub').textContent = 'Ye software kai alag-alag restaurants ke liye use ho sakta hai. Har restaurant ka data alag rakhne ke liye pehle Client ID batayein.';
+    document.getElementById('authBody').innerHTML = `
+      <button class="btn accent" style="width:100%;margin-bottom:8px;" onclick="renderClientGate('register')">Naya Restaurant Register Karein</button>
+      <button class="btn ghost" style="width:100%;" onclick="renderClientGate('login')">Pehle Se Bane Client ID Se Login Karein</button>
+    `;
+  } else if(mode==='register'){
+    document.getElementById('authTitle').textContent = 'Naya Restaurant Register Karein';
+    document.getElementById('authSub').textContent = 'Client ID is restaurant ki pehchaan hai - isi se aapka data doosre restaurants ke data se alag rehta hai.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Client ID (jaise: sharma-hotel-jaipur)<input id="cg_id" style="width:100%"></label>
+      <label class="f">Password Key Banayein<input id="cg_key" type="text" style="width:100%"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitClientRegister()">Register Karein &amp; Aage Badhein</button>
+      <div style="text-align:center;margin-top:12px;"><a href="#" style="font-size:12px;color:var(--ink-soft);" onclick="event.preventDefault();renderClientGate('choose');">Wapas Jayein</a></div>
+    `;
+  } else if(mode==='login'){
+    document.getElementById('authTitle').textContent = 'Client Login';
+    document.getElementById('authSub').textContent = 'Apna Client ID aur Password Key daalein.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Client ID<input id="cg_id2" style="width:100%"></label>
+      <label class="f">Password Key<input id="cg_key2" type="text" style="width:100%"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitClientLogin()">Login Karein</button>
+      <div style="text-align:center;margin-top:12px;"><a href="#" style="font-size:12px;color:var(--ink-soft);" onclick="event.preventDefault();renderClientGate('choose');">Wapas Jayein</a></div>
+    `;
+  }
+}
+function sanitizeClientId(raw){
+  return raw.trim().toLowerCase().replace(/[^a-z0-9\-_]/g,'-').replace(/-+/g,'-');
+}
+async function submitClientRegister(){
+  const id = sanitizeClientId(document.getElementById('cg_id').value);
+  const key = document.getElementById('cg_key').value.trim();
+  if(!id || !key){ document.getElementById('authErr').textContent = 'Client ID aur Password Key dono bharein.'; return; }
+  const existing = await clientMetaGet(id);
+  if(existing){ document.getElementById('authErr').textContent = 'Ye Client ID pehle se registered hai. "Login" use karein ya alag ID chunein.'; return; }
+  await clientMetaSet(id, {passwordKey:key, createdAt:new Date().toISOString()});
+  clientId = id; clientKey = key;
+  try{ localStorage.setItem('hms_client_id', id); localStorage.setItem('hms_client_key', key); }catch(e){}
+  await continueBoot();
+}
+async function submitClientLogin(){
+  const id = sanitizeClientId(document.getElementById('cg_id2').value);
+  const key = document.getElementById('cg_key2').value.trim();
+  const existing = await clientMetaGet(id);
+  if(!existing || existing.passwordKey !== key){
+    document.getElementById('authErr').textContent = 'Client ID ya Password Key galat hai.';
+    return;
+  }
+  clientId = id; clientKey = key;
+  try{ localStorage.setItem('hms_client_id', id); localStorage.setItem('hms_client_key', key); }catch(e){}
+  await continueBoot();
+}
+function switchClient(){
+  if(!confirm('Kisi doosre Restaurant (Client ID) se login karna hai? Aap is Client se logout ho jayenge.')) return;
+  try{ localStorage.removeItem('hms_client_id'); localStorage.removeItem('hms_client_key'); }catch(e){}
+  clientId=''; clientKey=''; currentUser=null;
+  renderClientGate('choose');
+}
+async function continueBoot(){
+  await loadState();
+  tickClock();
+  applyTheme(settings.theme || 'saffron');
+  updateBrand();
+  let sessionUserId = null;
+  try{ sessionUserId = localStorage.getItem('hms_session_user_id_'+clientId); }catch(e){}
+  const sessionUser = sessionUserId ? users.find(u=>u.id===sessionUserId) : null;
+  if(sessionUser){ currentUser = sessionUser; enterApp(); }
+  else { renderAuthScreen(); }
 }
 
 /* ---------------- AUTH ---------------- */
@@ -644,10 +754,10 @@ async function submitLogin(){
   enterApp();
 }
 function saveSession(userId){
-  try{ localStorage.setItem('hms_session_user_id', userId); }catch(e){}
+  try{ localStorage.setItem('hms_session_user_id_'+clientId, userId); }catch(e){}
 }
 function clearSession(){
-  try{ localStorage.removeItem('hms_session_user_id'); }catch(e){}
+  try{ localStorage.removeItem('hms_session_user_id_'+clientId); }catch(e){}
 }
 function logout(){
   currentUser = null;
@@ -713,6 +823,13 @@ async function confirmResetOtp(){
 
 function enterApp(){
   document.getElementById('authOverlay').classList.add('hidden');
+  if(currentUser.role==='master'){
+    const allKeys = ['tables','menu','stock','rooms','reports','settings','discount'];
+    currentUser.permissions = currentUser.permissions || {};
+    let changed = false;
+    allKeys.forEach(k=>{ if(!currentUser.permissions[k]){ currentUser.permissions[k]=true; changed=true; } });
+    if(changed) persist('users');
+  }
   applyTheme(settings.theme || 'saffron');
   updateBrand();
   buildNav();
@@ -737,11 +854,11 @@ const NAV_ITEMS = [
 ];
 function buildNav(){
   const nav = document.getElementById('navlist');
-  const allowed = NAV_ITEMS.filter(n => !n.perm || (currentUser && currentUser.permissions && currentUser.permissions[n.perm]));
+  const allowed = NAV_ITEMS.filter(n => !n.perm || isMaster() || (currentUser && currentUser.permissions && currentUser.permissions[n.perm]));
   nav.innerHTML = allowed.map(n=>`<button class="navbtn" data-view="${n.key}" onclick="showView('${n.key}')"><span class="ico">${n.ico}</span><span class="label">${n.label}</span></button>`).join('');
 }
 function showView(v){
-  const allowed = NAV_ITEMS.some(n => n.key===v && (!n.perm || (currentUser.permissions && currentUser.permissions[n.perm])));
+  const allowed = NAV_ITEMS.some(n => n.key===v && (!n.perm || isMaster() || (currentUser.permissions && currentUser.permissions[n.perm])));
   if(!allowed){ v = 'dashboard'; }
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
@@ -780,7 +897,12 @@ function renderSettings(){
     const t = THEMES[k];
     const isActive = (settings.theme||'saffron')===k;
     return `<button class="theme-swatch ${isActive?'active':''}" onclick="chooseTheme('${k}')">
-      <div class="sw-top"><div style="background:${t.sidebar}"></div><div style="background:${t.accent}"></div><div style="background:${t.bg}"></div></div>
+      <div class="sw-top">
+        <div class="sw-bg" style="background:linear-gradient(135deg, ${t.sidebar} 0%, ${t.sidebar} 45%, ${t.bg} 45%, ${t.bg} 100%);"></div>
+        <div class="sw-dot" style="background:${t.accent};"></div>
+        <div class="sw-accentbar" style="background:${t.accent};"></div>
+        <div class="sw-check">&#10003;</div>
+      </div>
       <div class="sw-label">${t.name}</div>
     </button>`;
   }).join('');
@@ -1067,7 +1189,9 @@ function renderTables(){
   grid.innerHTML = tables.map(t=>{
     const order = orders.find(o=>o.id===t.orderId);
     const amt = order ? order.lines.reduce((s,l)=>s+l.qty*l.price,0) : 0;
-    return `<div class="tablecard ${t.status}">
+    const hasItems = order && order.lines.length>0;
+    const cardClass = t.status==='free' ? 'free' : (hasItems ? 'active' : 'occupied');
+    return `<div class="tablecard ${cardClass}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
         <div class="tname" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.name}</div>
         <div style="display:flex;gap:4px;">
@@ -1075,7 +1199,7 @@ function renderTables(){
           ${(isMaster() && t.status==='free') ? `<button class="ticon" title="Delete" onclick="deleteTable('${t.id}')">&times;</button>` : ''}
         </div>
       </div>
-      <div class="tstatus" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.status==='free' ? 'Khaali' : (order && order.kotSent ? 'KOT Bheji Gayi' : 'Order Chal Raha Hai')}</div>
+      <div class="tstatus" style="cursor:pointer;" onclick="openTable('${t.id}')">${t.status==='free' ? 'Khaali' : (hasItems ? (order.kotSent ? 'KOT Bheji Gayi' : 'Order Chal Raha Hai') : 'Table Open - Item Add Karein')}</div>
       ${t.status==='occupied' ? `<div class="tamount" style="cursor:pointer;" onclick="openTable('${t.id}')">${money(amt)}</div>` : ''}
     </div>`;
   }).join('');
@@ -1314,41 +1438,45 @@ function amountInWords(amount){
   return 'Rupees ' + parts.join(' ').trim() + ' Only';
 }
 /* ---------------- SHARED INVOICE STYLING ---------------- */
-function invoiceStyleBlock(){
+function invoiceStyleBlock(colorful){
+  const bd = colorful ? '#B5691A' : '#000';
+  const tint = colorful ? '#FBEBD3' : '#f2f2f2';
+  const tint2 = colorful ? '#E5F2E9' : '#fff';
+  const dueBd = colorful ? '#2F7A4D' : '#000';
+  const line = colorful ? '#E4DCC8' : '#ccc';
   return `
     *{box-sizing:border-box;}
     body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;padding:0;margin:0;color:#000;background:#fff;}
-    .sheet{max-width:760px;margin:18px auto;background:#fff;padding:34px 40px 28px 40px;border:1px solid #000;}
-    .brandbar{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:16px;margin-bottom:18px;gap:16px;}
+    .sheet{max-width:760px;margin:18px auto;background:#fff;padding:34px 40px 28px 40px;border:1px solid ${line};}
+    .brandbar{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${bd};padding-bottom:16px;margin-bottom:18px;gap:16px;}
     .brandbar .left{display:flex;gap:14px;align-items:center;}
-    .brandbar img.logo{height:58px;width:58px;object-fit:contain;border-radius:8px;border:1px solid #999;padding:4px;background:#fff;filter:grayscale(100%);}
+    .brandbar img.logo{height:58px;width:58px;object-fit:contain;border-radius:8px;border:1px solid #999;padding:4px;background:#fff;${colorful?'':'filter:grayscale(100%);'}}
     .brandbar h1{font-family:Georgia,'Times New Roman',serif;font-size:23px;margin:0;letter-spacing:.01em;color:#000;}
-    .brandbar .taglinerow{font-size:11.5px;color:#333;margin-top:4px;line-height:1.5;}
+    .brandbar .taglinerow{font-size:11.5px;color:#000;margin-top:4px;line-height:1.5;}
     .brandbar .right{text-align:right;}
-    .doctag{display:inline-block;background:#000;color:#fff;font-size:11px;font-weight:700;letter-spacing:.09em;padding:5px 14px;border-radius:4px;text-transform:uppercase;}
-    .doctag.kot{background:#000;}
+    .doctag{display:inline-block;background:${tint};color:#000;font-size:11px;font-weight:700;letter-spacing:.09em;padding:5px 14px;border-radius:4px;text-transform:uppercase;border:1.5px solid ${bd};}
     .gstline{font-size:11.5px;color:#000;margin-top:8px;font-weight:700;}
-    .metagrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;margin-bottom:16px;background:#fff;border:1px solid #000;border-radius:6px;padding:12px 16px;}
-    .metagrid .mi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:1px;}
+    .metagrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;margin-bottom:16px;background:${tint};border:1px solid ${line};border-radius:6px;padding:12px 16px;}
+    .metagrid .mi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#000;margin-bottom:1px;}
     .metagrid .mi b{font-size:12.5px;color:#000;}
-    .custblock{border:1px solid #000;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;background:#fff;}
-    .custblock .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#555;font-weight:700;margin-bottom:4px;}
+    .custblock{border:1px solid ${line};border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;background:#fff;}
+    .custblock .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#000;font-weight:700;margin-bottom:4px;}
     table.items{width:100%;border-collapse:collapse;margin-bottom:4px;font-size:12px;}
-    table.items thead th{background:#000;color:#fff;text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
-    table.items tbody td{padding:8px 9px;border-bottom:1px solid #ccc;}
-    table.items tbody tr:nth-child(even){background:#f5f5f5;}
+    table.items thead th{background:${tint};color:#000;text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid ${bd};}
+    table.items tbody td{padding:8px 9px;border-bottom:1px solid ${line};color:#000;}
+    table.items tbody tr:nth-child(even){background:${colorful?'#FBF7EF':'#f7f7f7'};}
     .num{text-align:right;}
     .ctr{text-align:center;}
     .totwrap{display:flex;justify-content:flex-end;margin-top:14px;}
     .totbox{width:290px;font-size:12.5px;}
-    .totbox .trow{display:flex;justify-content:space-between;padding:4px 2px;}
-    .totbox .trow.grand{background:#000;color:#fff;border-radius:5px;padding:9px 10px;margin-top:6px;font-weight:700;font-size:15px;}
-    .totbox .trow.due{background:#fff;border:2px solid #000;border-radius:5px;padding:7px 10px;margin-top:4px;font-weight:700;color:#000;}
-    .wordsline{font-size:11.5px;color:#000;margin-top:10px;padding:8px 12px;background:#fff;border:1px solid #000;border-radius:6px;}
+    .totbox .trow{display:flex;justify-content:space-between;padding:4px 2px;color:#000;}
+    .totbox .trow.grand{background:${tint};border:2px solid ${bd};color:#000;border-radius:5px;padding:9px 10px;margin-top:6px;font-weight:800;font-size:15px;}
+    .totbox .trow.due{background:${tint2};border:2px solid ${dueBd};border-radius:5px;padding:7px 10px;margin-top:4px;font-weight:700;color:#000;}
+    .wordsline{font-size:11.5px;color:#000;margin-top:10px;padding:8px 12px;background:${tint};border:1px solid ${line};border-radius:6px;}
     .wordsline b{color:#000;}
-    .notebox{border-left:3px solid #000;background:#f5f5f5;padding:8px 12px;font-size:11.5px;margin-top:16px;border-radius:0 4px 4px 0;}
+    .notebox{border-left:3px solid ${bd};background:${tint};padding:8px 12px;font-size:11.5px;margin-top:16px;border-radius:0 4px 4px 0;color:#000;}
     .notebox .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#000;font-weight:700;margin-bottom:2px;}
-    .terms{font-size:10px;color:#333;margin-top:22px;border-top:1px dashed #000;padding-top:10px;line-height:1.6;}
+    .terms{font-size:10px;color:#000;margin-top:22px;border-top:1px dashed ${bd};padding-top:10px;line-height:1.6;}
     .terms b{color:#000;}
     .thankyou{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#000;margin-top:14px;}
     .signrow{display:flex;justify-content:space-between;margin-top:34px;font-size:11px;color:#000;}
@@ -1356,8 +1484,51 @@ function invoiceStyleBlock(){
     @media print{ body{background:#fff;} .sheet{box-shadow:none;margin:0;max-width:100%;padding:14px 22px;} }
   `;
 }
-/* ---- Format 2: Compact / Thermal style (58-80mm printers) ---- */
-function thermalStyleBlock(){
+/* ---- Format 2: Standard Branded (letterhead-band style) ---- */
+function standardStyleBlock(colorful){
+  const bandBg = colorful ? '#FBEBD3' : '#f2f2f2';
+  const bandBd = colorful ? '#B5691A' : '#000';
+  const line = colorful ? '#E4DCC8' : '#ccc';
+  const tint2 = colorful ? '#E5F2E9' : '#fff';
+  const dueBd = colorful ? '#2F7A4D' : '#000';
+  return `
+    *{box-sizing:border-box;}
+    body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;padding:0;margin:0;color:#000;background:#fff;}
+    .ssheet{max-width:760px;margin:18px auto;background:#fff;border:1px solid ${line};}
+    .sband{background:${bandBg};border-bottom:4px solid ${bandBd};padding:22px 36px;display:flex;justify-content:space-between;align-items:center;gap:16px;}
+    .sband img.logo{height:56px;width:56px;object-fit:contain;border-radius:8px;background:#fff;padding:4px;border:1px solid #999;${colorful?'':'filter:grayscale(100%);'}}
+    .sband .sleft{display:flex;gap:14px;align-items:center;}
+    .sband h1{font-family:Georgia,serif;font-size:24px;margin:0;color:#000;}
+    .sband .ssub{font-size:11.5px;color:#000;margin-top:4px;}
+    .sband .sright{text-align:right;font-size:12px;color:#000;}
+    .sband .sright b{display:block;font-size:14px;}
+    .sinner{padding:26px 36px;}
+    .smetarow{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;margin-bottom:16px;color:#000;}
+    .smetarow div span{display:block;font-size:9.5px;text-transform:uppercase;color:#000;letter-spacing:.05em;}
+    .scust{border:1px solid ${line};border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;background:${bandBg};color:#000;}
+    .scust .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:4px;}
+    table.sitems{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;}
+    table.sitems thead th{border-bottom:2px solid ${bandBd};text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;color:#000;}
+    table.sitems tbody td{padding:8px 9px;border-bottom:1px solid ${line};color:#000;}
+    table.sitems tbody tr:nth-child(even){background:${colorful?'#FBF7EF':'#f7f7f7'};}
+    .snum{text-align:right;}
+    .sctr{text-align:center;}
+    .stotwrap{display:flex;justify-content:flex-end;margin-top:14px;}
+    .stotbox{width:300px;font-size:12.5px;border:1px solid ${line};border-radius:6px;overflow:hidden;}
+    .stotbox .srow{display:flex;justify-content:space-between;padding:6px 12px;color:#000;border-bottom:1px solid ${line};}
+    .stotbox .srow:last-child{border-bottom:none;}
+    .stotbox .srow.sgrand{background:${bandBg};font-weight:800;font-size:15px;border-top:2px solid ${bandBd};}
+    .stotbox .srow.sdue{background:${tint2};border-top:2px solid ${dueBd};font-weight:700;}
+    .swords{font-size:11.5px;color:#000;margin-top:12px;padding:8px 12px;background:${bandBg};border-radius:6px;}
+    .snote{border-left:3px solid ${bandBd};background:${bandBg};padding:8px 12px;font-size:11.5px;margin-top:14px;color:#000;}
+    .sterms{font-size:10px;color:#000;margin-top:20px;border-top:1px dashed ${bandBd};padding-top:10px;line-height:1.6;}
+    .sthanks{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#000;margin-top:14px;padding-bottom:10px;}
+    @media print{ .ssheet{margin:0;border:none;} }
+  `;
+}
+/* ---- Format 4: Compact / Thermal style (58-80mm printers) ---- */
+function thermalStyleBlock(colorful){
+  const dash = colorful ? '#B5691A' : '#000';
   return `
     *{box-sizing:border-box;}
     body{font-family:'Courier New',monospace;padding:0;margin:0;color:#000;background:#fff;}
@@ -1365,14 +1536,14 @@ function thermalStyleBlock(){
     .tcenter{text-align:center;}
     .thotel{font-weight:700;font-size:15px;text-transform:uppercase;}
     .tsub{font-size:10.5px;margin-top:2px;}
-    .tline{border-top:1px dashed #000;margin:8px 0;}
+    .tline{border-top:1px dashed ${dash};margin:8px 0;}
     .trow{display:flex;justify-content:space-between;font-size:11.5px;padding:1px 0;}
     table.titems{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;}
-    table.titems th{border-bottom:1px solid #000;text-align:left;padding:3px 2px;font-size:10.5px;text-transform:uppercase;}
+    table.titems th{border-bottom:1px solid ${dash};text-align:left;padding:3px 2px;font-size:10.5px;text-transform:uppercase;}
     table.titems td{padding:3px 2px;vertical-align:top;}
     .tnum{text-align:right;}
     .tctr{text-align:center;}
-    .tgrand{font-weight:700;font-size:13.5px;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin-top:4px;}
+    .tgrand{font-weight:700;font-size:13.5px;border-top:1px solid ${dash};border-bottom:1px solid ${dash};padding:4px 0;margin-top:4px;}
     .twords{font-size:10px;margin-top:6px;}
     .tterms{font-size:9px;margin-top:10px;line-height:1.5;}
     .tthanks{text-align:center;font-size:11px;margin-top:10px;font-weight:700;}
@@ -1380,37 +1551,39 @@ function thermalStyleBlock(){
   `;
 }
 /* ---- Format 3: Formal Bordered / Ledger style ---- */
-function formalStyleBlock(){
+function formalStyleBlock(colorful){
+  const bd = colorful ? '#B5691A' : '#000';
+  const tintHead = colorful ? '#FBEBD3' : '#f0f0f0';
   return `
     *{box-sizing:border-box;}
     body{font-family:Georgia,'Times New Roman',serif;padding:0;margin:0;color:#000;background:#fff;}
-    .fsheet{max-width:760px;margin:18px auto;padding:0;border:3px double #000;}
+    .fsheet{max-width:760px;margin:18px auto;padding:0;border:3px double ${bd};}
     .finner{padding:26px 34px;}
-    .fhead{text-align:center;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:16px;}
-    .fhead img{height:54px;filter:grayscale(100%);margin-bottom:6px;}
-    .fhead h1{font-size:22px;margin:0;letter-spacing:.02em;text-transform:uppercase;}
-    .fhead .fsub{font-size:11px;margin-top:4px;color:#333;}
-    .fdoctag{display:inline-block;border:1.5px solid #000;padding:3px 16px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:8px;font-weight:700;}
-    .fmeta{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:14px;border-bottom:1px solid #000;padding-bottom:10px;flex-wrap:wrap;gap:6px;}
-    .fmeta div span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#555;}
-    .fcust{font-size:11.5px;margin-bottom:14px;border:1px solid #000;padding:9px 12px;}
-    .fcust .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700;margin-bottom:3px;}
-    table.fitems{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px;border:1px solid #000;}
-    table.fitems th{border:1px solid #000;padding:6px 8px;font-size:10px;text-transform:uppercase;text-align:left;background:#fff;}
-    table.fitems td{border:1px solid #000;padding:6px 8px;}
+    .fhead{text-align:center;border-bottom:2px solid ${bd};padding-bottom:14px;margin-bottom:16px;}
+    .fhead img{height:54px;${colorful?'':'filter:grayscale(100%);'}margin-bottom:6px;}
+    .fhead h1{font-size:22px;margin:0;letter-spacing:.02em;text-transform:uppercase;color:#000;}
+    .fhead .fsub{font-size:11px;margin-top:4px;color:#000;}
+    .fdoctag{display:inline-block;border:1.5px solid ${bd};background:${tintHead};padding:3px 16px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:8px;font-weight:700;color:#000;}
+    .fmeta{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:14px;border-bottom:1px solid ${bd};padding-bottom:10px;flex-wrap:wrap;gap:6px;color:#000;}
+    .fmeta div span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#000;}
+    .fcust{font-size:11.5px;margin-bottom:14px;border:1px solid ${bd};padding:9px 12px;color:#000;}
+    .fcust .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#000;font-weight:700;margin-bottom:3px;}
+    table.fitems{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px;border:1px solid ${bd};}
+    table.fitems th{border:1px solid ${bd};padding:6px 8px;font-size:10px;text-transform:uppercase;text-align:left;background:${tintHead};color:#000;}
+    table.fitems td{border:1px solid ${bd};padding:6px 8px;color:#000;}
     .fnum{text-align:right;}
     .fctr{text-align:center;}
     .ftotwrap{display:flex;justify-content:flex-end;}
-    .ftotbox{width:290px;font-size:12px;border:1px solid #000;}
-    .ftotbox .frow{display:flex;justify-content:space-between;padding:5px 10px;border-bottom:1px solid #000;}
+    .ftotbox{width:290px;font-size:12px;border:1px solid ${bd};}
+    .ftotbox .frow{display:flex;justify-content:space-between;padding:5px 10px;border-bottom:1px solid ${bd};color:#000;}
     .ftotbox .frow:last-child{border-bottom:none;}
-    .ftotbox .frow.fgrand{font-weight:700;font-size:14px;background:#f0f0f0;}
-    .fwords{font-size:11px;margin-top:12px;border-top:1px dashed #000;padding-top:8px;}
-    .fterms{font-size:9.5px;color:#333;margin-top:20px;border-top:1px solid #000;padding-top:8px;line-height:1.6;}
-    .fsignrow{display:flex;justify-content:space-between;margin-top:36px;font-size:11px;}
+    .ftotbox .frow.fgrand{font-weight:800;font-size:14px;background:${tintHead};}
+    .fwords{font-size:11px;margin-top:12px;border-top:1px dashed ${bd};padding-top:8px;color:#000;}
+    .fterms{font-size:9.5px;color:#000;margin-top:20px;border-top:1px solid ${bd};padding-top:8px;line-height:1.6;}
+    .fsignrow{display:flex;justify-content:space-between;margin-top:36px;font-size:11px;color:#000;}
     .fsignrow div{border-top:1px solid #000;padding-top:4px;width:150px;text-align:center;}
-    .fthanks{text-align:center;font-style:italic;font-size:12.5px;margin-top:16px;}
-    @media print{ .fsheet{border:2px double #000;margin:0;} }
+    .fthanks{text-align:center;font-style:italic;font-size:12.5px;margin-top:16px;color:#000;}
+    @media print{ .fsheet{border:2px double ${bd};margin:0;} }
   `;
 }
 function printKOTReceipt(){
@@ -1542,20 +1715,23 @@ async function confirmBill(){
   if(chargeToRoom){
     const booking = bookings.find(b=>b.id===order.bookingId);
     if(!booking){ alert('Booking nahi mili.'); return; }
+    if(!booking.services) booking.services=[];
     order.lines.forEach(l=>{
       const item = items.find(i=>i.id===l.itemId);
       if(item){
         item.stock = Math.max(0, item.stock - l.qty);
         stockMoves.push({id:uid(), date:new Date().toISOString(), itemId:item.id, itemName:item.name, type:'out', qty:l.qty, note:'Room '+booking.roomNo+' fooding order'});
       }
+      booking.services.push({
+        name: l.name, amount: l.qty*l.price, qty: l.qty, rate: l.price,
+        hsn: (item && item.hsn) ? item.hsn : '996331',
+        isFood: true, date: new Date().toISOString()
+      });
     });
-    if(!booking.services) booking.services=[];
-    const itemsSummary = order.lines.map(l=>l.name+' x'+l.qty).join(', ');
-    booking.services.push({name:'Fooding: '+itemsSummary, amount: subtotal, date:new Date().toISOString()});
     orders = orders.filter(o=>o.id!==order.id);
     await persist('bookings'); await persist('items'); await persist('stockMoves'); await persist('orders');
     closeOrderModal();
-    alert('Fooding order (Rs '+Math.round(subtotal)+') Room '+booking.roomNo+' ke bill mein add ho gaya. Check-out ke time final invoice mein shamil hoga.');
+    alert('Fooding order (Rs '+Math.round(subtotal)+') Room '+booking.roomNo+' ke bill mein add ho gaya (HSN code sahit). Check-out ke time final invoice mein shamil hoga.');
     return;
   }
 
@@ -1623,7 +1799,12 @@ function buildRoomInvoiceData(booking){
   const cgst = (booking.taxAmt||0)/2, sgst = (booking.taxAmt||0)/2, halfPct = ((booking.taxPct||0)/2).toFixed(2);
   const balanceDue = booking.balanceDue!==undefined ? booking.balanceDue : booking.grandTotal;
   const roomItems = [{sr:1, name:'Room Charges - Room '+booking.roomNo+' ('+(booking.nights||0)+' night'+((booking.nights||0)>1?'s':'')+' x Rs '+Math.round(booking.ratePerNight||0)+')', hsn:'996311', qty:booking.nights||0, rate:Math.round(booking.ratePerNight||0), amount:Math.round(booking.roomTotal||0)}];
-  (booking.services||[]).forEach((sv,i)=> roomItems.push({sr:i+2, name:sv.name, hsn:'996331', qty:1, rate:Math.round(sv.amount), amount:Math.round(sv.amount)}));
+  (booking.services||[]).forEach((sv,i)=> roomItems.push({
+    sr:i+2, name:sv.name, hsn: sv.hsn || '996331',
+    qty: sv.qty!==undefined ? sv.qty : 1,
+    rate: sv.rate!==undefined ? Math.round(sv.rate) : Math.round(sv.amount),
+    amount: Math.round(sv.amount)
+  }));
   return {
     docTag: 'Room Bill / Tax Invoice',
     metaRows: [
@@ -1649,7 +1830,7 @@ function buildRoomInvoiceData(booking){
     printTitle: 'Room Invoice '+booking.roomNo
   };
 }
-function renderFormat1(data){
+function renderFormat1(data, colorful){
   const rowsHtml = data.metaRows.map(m=>`<div class="mi"><span>${m.label}</span><b>${m.value}</b></div>`).join('');
   const itemsHtml = data.items.map(it=>`<tr><td>${it.sr}</td><td>${it.name}</td><td class="ctr">${it.hsn}</td><td class="ctr">${it.qty}</td><td class="num">Rs ${it.rate}</td><td class="num">Rs ${it.amount}</td></tr>`).join('');
   const body = `<div class="sheet">
@@ -1690,36 +1871,51 @@ function renderFormat1(data){
       <div class="terms"><b>Terms &amp; Conditions:</b> ${data.terms}</div>
       <div class="thankyou">${data.thanks}</div>
     </div>`;
-  return {style: invoiceStyleBlock(), body};
+  return {style: invoiceStyleBlock(colorful), body};
 }
-function renderFormat2(data){
-  const itemsHtml = data.items.map(it=>`<tr><td>${it.name}<br><span style="font-size:9.5px;">${it.qty} x ${it.rate}</span></td><td class="tnum">${it.amount}</td></tr>`).join('');
-  const body = `<div class="tsheet">
-      <div class="tcenter thotel">${settings.hotelName||'Hotel'}</div>
-      <div class="tcenter tsub">${settings.address||''}</div>
-      <div class="tcenter tsub">${settings.phone?'Ph: '+settings.phone:''}${settings.gstNo?' | GSTIN: '+settings.gstNo:''}</div>
-      <div class="tline"></div>
-      ${data.metaRows.map(m=>`<div class="trow"><span>${m.label}</span><span>${m.value}</span></div>`).join('')}
-      <div class="tline"></div>
-      ${data.customer ? `<div style="font-size:11px;">${data.customer.name?data.customer.name+'<br>':''}${data.customer.phone?'Ph: '+data.customer.phone:''}</div><div class="tline"></div>` : ''}
-      <table class="titems"><thead><tr><th>Item</th><th class="tnum">Amt</th></tr></thead>
-      <tbody>${itemsHtml}</tbody></table>
-      <div class="tline"></div>
-      <div class="trow"><span>Subtotal</span><span>${data.subtotal}</span></div>
-      <div class="trow"><span>CGST+SGST</span><span>${data.cgstAmt+data.sgstAmt}</span></div>
-      <div class="trow"><span>${data.discountLabel}</span><span>-${data.discount}</span></div>
-      <div class="trow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
-      <div class="tgrand trow"><span>GRAND TOTAL</span><span>Rs ${data.grandTotal}</span></div>
-      ${data.advance!==null ? `<div class="trow"><span>Advance Paid</span><span>-${data.advance}</span></div><div class="trow" style="font-weight:700;"><span>Balance Due</span><span>${data.balanceDue}</span></div>` : ''}
-      <div class="trow"><span>Payment</span><span>${data.paymentMode}</span></div>
-      <div class="twords">${data.wordsText}</div>
-      ${data.remark ? `<div class="twords">Remark: ${data.remark}</div>` : ''}
-      <div class="tterms">${data.terms}</div>
-      <div class="tthanks">${data.thanks}</div>
+/* Format 2 - Standard Branded (letterhead band style, closer to the original single-format bill look) */
+function renderFormat2(data, colorful){
+  const metaHtml = data.metaRows.map(m=>`<div><span>${m.label}</span><b>${m.value}</b></div>`).join('');
+  const itemsHtml = data.items.map(it=>`<tr><td>${it.sr}</td><td>${it.name}</td><td class="sctr">${it.hsn}</td><td class="sctr">${it.qty}</td><td class="snum">Rs ${it.rate}</td><td class="snum">Rs ${it.amount}</td></tr>`).join('');
+  const body = `<div class="ssheet">
+      <div class="sband">
+        <div class="sleft">
+          ${settings.logo ? `<img class="logo" src="${settings.logo}">` : ''}
+          <div>
+            <h1>${settings.hotelName||'Hotel'}</h1>
+            <div class="ssub">${settings.address||''}${settings.phone?' | Ph: '+settings.phone:''}</div>
+            <div class="ssub">GSTIN: ${settings.gstNo||'Not Registered'}</div>
+          </div>
+        </div>
+        <div class="sright"><b>${data.docTag}</b>${data.metaRows[0]?data.metaRows[0].value:''}</div>
+      </div>
+      <div class="sinner">
+        <div class="smetarow">${metaHtml}</div>
+        ${data.customer ? `<div class="scust">
+          <div class="lbl">${data.docTag.indexOf('Room')>-1?'Guest Details':'Bill To'}</div>
+          ${data.customer.name?data.customer.name+'<br>':''}${data.customer.phone?'Ph: '+data.customer.phone+'<br>':''}${data.customer.idLine?data.customer.idLine+'<br>':''}${data.customer.address?data.customer.address+'<br>':''}${data.customer.gst?'GSTIN: '+data.customer.gst:''}
+        </div>` : ''}
+        <table class="sitems"><thead><tr><th>Sr</th><th>Item</th><th class="sctr">HSN</th><th class="sctr">Qty</th><th class="snum">Rate</th><th class="snum">Amount</th></tr></thead>
+        <tbody>${itemsHtml}</tbody></table>
+        <div class="stotwrap"><div class="stotbox">
+          <div class="srow"><span>Subtotal</span><span>Rs ${data.subtotal}</span></div>
+          <div class="srow"><span>CGST (${data.cgstPct}%)</span><span>Rs ${data.cgstAmt}</span></div>
+          <div class="srow"><span>SGST (${data.cgstPct}%)</span><span>Rs ${data.sgstAmt}</span></div>
+          <div class="srow"><span>${data.discountLabel}</span><span>-Rs ${data.discount}</span></div>
+          <div class="srow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
+          <div class="srow sgrand"><span>Grand Total</span><span>Rs ${data.grandTotal}</span></div>
+          ${data.advance!==null ? `<div class="srow"><span>Advance Paid</span><span>-Rs ${data.advance}</span></div><div class="srow sdue"><span>Balance Due</span><span>Rs ${data.balanceDue}</span></div>` : ''}
+          <div class="srow"><span>Payment Mode</span><span>${data.paymentMode}</span></div>
+        </div></div>
+        <div class="swords"><b>Amount in Words:</b> ${data.wordsText}</div>
+        ${data.remark ? `<div class="snote"><b>Remark:</b> ${data.remark}</div>` : ''}
+        <div class="sterms"><b>Terms &amp; Conditions:</b> ${data.terms}</div>
+        <div class="sthanks">${data.thanks}</div>
+      </div>
     </div>`;
-  return {style: thermalStyleBlock(), body};
+  return {style: standardStyleBlock(colorful), body};
 }
-function renderFormat3(data){
+function renderFormat3(data, colorful){
   const metaHtml = data.metaRows.map(m=>`<div><span>${m.label}</span><b>${m.value}</b></div>`).join('');
   const itemsHtml = data.items.map(it=>`<tr><td>${it.sr}</td><td>${it.name}</td><td class="fctr">${it.hsn}</td><td class="fctr">${it.qty}</td><td class="fnum">Rs ${it.rate}</td><td class="fnum">Rs ${it.amount}</td></tr>`).join('');
   const body = `<div class="fsheet"><div class="finner">
@@ -1753,18 +1949,50 @@ function renderFormat3(data){
       <div class="fsignrow"><div>Guest / Customer Signature</div><div>Authorised Signatory</div></div>
       <div class="fthanks">${data.thanks}</div>
     </div></div>`;
-  return {style: formalStyleBlock(), body};
+  return {style: formalStyleBlock(colorful), body};
 }
-function chooseAndPrintInvoice(data){
+function renderFormat4(data, colorful){
+  const itemsHtml = data.items.map(it=>`<tr><td>${it.name}<br><span style="font-size:9.5px;">${it.qty} x ${it.rate}</span></td><td class="tnum">${it.amount}</td></tr>`).join('');
+  const body = `<div class="tsheet">
+      <div class="tcenter thotel">${settings.hotelName||'Hotel'}</div>
+      <div class="tcenter tsub">${settings.address||''}</div>
+      <div class="tcenter tsub">${settings.phone?'Ph: '+settings.phone:''}${settings.gstNo?' | GSTIN: '+settings.gstNo:''}</div>
+      <div class="tline"></div>
+      ${data.metaRows.map(m=>`<div class="trow"><span>${m.label}</span><span>${m.value}</span></div>`).join('')}
+      <div class="tline"></div>
+      ${data.customer ? `<div style="font-size:11px;">${data.customer.name?data.customer.name+'<br>':''}${data.customer.phone?'Ph: '+data.customer.phone:''}</div><div class="tline"></div>` : ''}
+      <table class="titems"><thead><tr><th>Item</th><th class="tnum">Amt</th></tr></thead>
+      <tbody>${itemsHtml}</tbody></table>
+      <div class="tline"></div>
+      <div class="trow"><span>Subtotal</span><span>${data.subtotal}</span></div>
+      <div class="trow"><span>CGST+SGST</span><span>${data.cgstAmt+data.sgstAmt}</span></div>
+      <div class="trow"><span>${data.discountLabel}</span><span>-${data.discount}</span></div>
+      <div class="trow"><span>Round Off</span><span>${(data.roundOff>=0?'+':'')+data.roundOff.toFixed(2)}</span></div>
+      <div class="tgrand trow"><span>GRAND TOTAL</span><span>Rs ${data.grandTotal}</span></div>
+      ${data.advance!==null ? `<div class="trow"><span>Advance Paid</span><span>-${data.advance}</span></div><div class="trow" style="font-weight:700;"><span>Balance Due</span><span>${data.balanceDue}</span></div>` : ''}
+      <div class="trow"><span>Payment</span><span>${data.paymentMode}</span></div>
+      <div class="twords">${data.wordsText}</div>
+      ${data.remark ? `<div class="twords">Remark: ${data.remark}</div>` : ''}
+      <div class="tterms">${data.terms}</div>
+      <div class="tthanks">${data.thanks}</div>
+    </div>`;
+  return {style: thermalStyleBlock(colorful), body};
+}
+function chooseAndPrintInvoice(data, colorful){
   window._pendingInvoiceData = data;
+  window._pendingInvoiceColorful = !!colorful;
   const lastFormat = settings.billFormat || 1;
   const formats = [
     {id:1, title:'Format 1 - Detailed Classic', desc:'Poora itemized table, GST breakdown, terms & conditions. A4 print ke liye best.'},
-    {id:2, title:'Format 2 - Compact / Thermal', desc:'Chhoti thermal printer (58/80mm) ya kam kagaz istemal karne ke liye compact receipt.'},
-    {id:3, title:'Format 3 - Formal Bordered', desc:'Classic double-border formal invoice, signature line ke saath.'}
+    {id:2, title:'Format 2 - Standard Branded', desc:'Letterhead-style banner ke saath standard professional bill.'},
+    {id:3, title:'Format 3 - Formal Bordered', desc:'Classic double-border formal invoice, signature line ke saath.'},
+    {id:4, title:'Format 4 - Compact / Thermal', desc:'Chhoti thermal printer (58/80mm) ya kam kagaz istemal karne ke liye compact receipt.'}
   ];
+  const noteText = colorful
+    ? 'Bill ka design colourful/attractive hoga, lekin sabhi likhawat (text) hamesha black rahegi. Format chunein:'
+    : 'Restaurant KOT/Bill hamesha black &amp; white mein print hota hai (ink bachane ke liye). Format chunein:';
   document.getElementById('formatModalBody').innerHTML = `
-    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-4px;">Bill sirf black &amp; white mein print hoga (ink bachane ke liye). Format chunein:</p>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-4px;">${noteText}</p>
     ${formats.map(f=>`<button class="formatcard ${lastFormat==f.id?'active':''}" onclick="printInvoiceWithFormat(${f.id})">
       <div class="fc-title">${f.title}</div>
       <div class="fc-desc">${f.desc}</div>
@@ -1775,17 +2003,20 @@ function chooseAndPrintInvoice(data){
 async function printInvoiceWithFormat(formatId){
   const data = window._pendingInvoiceData;
   if(!data) return;
+  const colorful = !!window._pendingInvoiceColorful;
   settings.billFormat = formatId;
   await persist('settings');
   document.getElementById('formatOverlay').classList.remove('active');
   let r;
-  if(formatId===2) r = renderFormat2(data);
-  else if(formatId===3) r = renderFormat3(data);
-  else r = renderFormat1(data);
+  if(formatId===2) r = renderFormat2(data, colorful);
+  else if(formatId===3) r = renderFormat3(data, colorful);
+  else if(formatId===4) r = renderFormat4(data, colorful);
+  else r = renderFormat1(data, colorful);
   printDocument(data.printTitle, r.style, r.body);
 }
 function printBillReceipt(sale){
-  chooseAndPrintInvoice(buildSaleInvoiceData(sale));
+  /* Restaurant bill: always black & white, per hotel policy */
+  chooseAndPrintInvoice(buildSaleInvoiceData(sale), false);
 }
 function printSaleById(saleId){
   const sale = sales.find(s=>s.id===saleId);
@@ -1938,7 +2169,7 @@ function renderRooms(){
   const grid = document.getElementById('roomGrid');
   grid.innerHTML = rooms.map(r=>{
     const booking = bookings.find(b=>b.id===r.currentBookingId && b.status==='active');
-    const cardClass = r.status==='vacant' ? 'free' : (r.status==='cleaning' ? 'cleaning' : 'occupied');
+    const cardClass = r.status==='vacant' ? 'free' : (r.status==='cleaning' ? 'cleaning' : 'active');
     const statusLabel = r.status==='vacant' ? 'Khaali / Ready' : (r.status==='cleaning' ? 'Cleaning Pending' : ('Guest: '+(booking?booking.guestName:'-')));
     return `<div class="tablecard ${cardClass}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
@@ -2289,7 +2520,7 @@ function printRegistrationCard(bookingId){
       </div>
       <div class="terms"><b>Note:</b> Check-out time is as per hotel policy. Guests are requested to carry a valid government ID at all times during their stay.</div>
     </div>`;
-  printDocument('Guest Registration - Room '+booking.roomNo, invoiceStyleBlock(), body);
+  printDocument('Guest Registration - Room '+booking.roomNo, invoiceStyleBlock(true), body);
 }
 function openCheckoutBilling(bookingId){
   const booking = bookings.find(b=>b.id===bookingId);
@@ -2399,7 +2630,7 @@ function reprintRoomBill(bookingId){
   printRoomBill(booking);
 }
 function printRoomBill(booking){
-  chooseAndPrintInvoice(buildRoomInvoiceData(booking));
+  chooseAndPrintInvoice(buildRoomInvoiceData(booking), true);
 }
 
 /* ---------------- STOCK ---------------- */
@@ -2759,25 +2990,47 @@ function printReportPDF(){
 
 /* ---------------- INIT ---------------- */
 (async function init(){
-  await loadState();
-  tickClock();
-  applyTheme(settings.theme || 'saffron');
-  updateBrand();
   document.getElementById('orderOverlay').addEventListener('click', (e)=>{
     if(e.target.id==='orderOverlay') closeOrderModal();
   });
 
-  /* Restore previous login session (so refresh doesn't log the user out) */
-  let sessionUserId = null;
-  try{ sessionUserId = localStorage.getItem('hms_session_user_id'); }catch(e){}
-  const sessionUser = sessionUserId ? users.find(u=>u.id===sessionUserId) : null;
-  if(sessionUser){
-    currentUser = sessionUser;
-    enterApp();
+  let savedClientId = null, savedClientKey = null;
+  try{
+    savedClientId = localStorage.getItem('hms_client_id');
+    savedClientKey = localStorage.getItem('hms_client_key');
+  }catch(e){}
+
+  if(savedClientId && savedClientKey){
+    clientId = savedClientId; clientKey = savedClientKey;
+    await continueBoot();
   } else {
-    renderAuthScreen();
+    renderClientGate('choose');
   }
 })();
 </script>
-</body>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWrFjl3ezqz_w8DzhlQmZ7Kz9SJ1CoMRk",
+    authDomain: "stellar-desk-db.firebaseapp.com",
+    databaseURL: "https://stellar-desk-db-default-rtdb.firebaseio.com",
+    projectId: "stellar-desk-db",
+    storageBucket: "stellar-desk-db.firebasestorage.app",
+    messagingSenderId: "748687559394",
+    appId: "1:748687559394:web:a7fb74a325d76a475e6cbb",
+    measurementId: "G-6NT0D6YWW2"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+     </script>
+   </body>
 </html>
