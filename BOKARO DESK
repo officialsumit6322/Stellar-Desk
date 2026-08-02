@@ -193,6 +193,9 @@
   <div class="sidebar-foot">
     <span class="who" id="whoBox">-</span>
     <button class="logout-btn" onclick="logout()">Logout</button>
+    <div style="text-align:center;margin-top:8px;">
+      <a href="#" style="font-size:10.5px;color:rgba(159,196,185,0.7);" onclick="event.preventDefault();switchClient();">Doosra Restaurant (Client ID)</a>
+    </div>
   </div>
 </aside>
 
@@ -438,6 +441,7 @@ const FIREBASE_CONFIG = {
 };
 let firestoreDb = null;
 let firebaseReady = false;
+let clientId = '', clientKey = '';
 try{
   const cfgLooksReal = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_') && typeof firebase !== 'undefined';
   if(cfgLooksReal){
@@ -506,22 +510,41 @@ function applyTheme(key){
 const FIRESTORE_COLLECTION = 'hotel_data';
 
 async function storeGet(key){
+  const fullKey = (clientId ? clientId+'__' : '') + key;
   if(firebaseReady){
-    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).get();
-    if(!doc.exists) throw new Error('not found: '+key);
+    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(fullKey).get();
+    if(!doc.exists) throw new Error('not found: '+fullKey);
     return {value: doc.data().value, version: 'firestore'};
   }
-  const v = localStorage.getItem(key);
-  if(v===null) throw new Error('not found: '+key);
+  const v = localStorage.getItem(fullKey);
+  if(v===null) throw new Error('not found: '+fullKey);
   return {value:v, version:'local'};
 }
 async function storeSet(key, value){
+  const fullKey = (clientId ? clientId+'__' : '') + key;
   if(firebaseReady){
-    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(key).set({value, updatedAt: new Date().toISOString()});
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(fullKey).set({value, updatedAt: new Date().toISOString()});
     return 'firestore';
   }
-  localStorage.setItem(key, value);
+  localStorage.setItem(fullKey, value);
   return 'local';
+}
+async function clientMetaGet(cid){
+  if(firebaseReady){
+    const doc = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(cid+'__meta').get();
+    return doc.exists ? doc.data() : null;
+  }
+  try{
+    const raw = localStorage.getItem('hms_client_meta_'+cid);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+async function clientMetaSet(cid, data){
+  if(firebaseReady){
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(cid+'__meta').set(data);
+  } else {
+    try{ localStorage.setItem('hms_client_meta_'+cid, JSON.stringify(data)); }catch(e){}
+  }
 }
 
 async function loadState(){
@@ -585,6 +608,84 @@ async function persist(key){
     const v = await storeSet(KEYS[key], JSON.stringify(map[key]));
     versions[key] = v;
   }catch(e){ console.error('save failed', key, e); }
+}
+
+/* ---------------- CLIENT (RESTAURANT TENANT) GATE ---------------- */
+function renderClientGate(mode){
+  mode = mode || 'choose';
+  const overlay = document.getElementById('authOverlay');
+  overlay.classList.remove('hidden');
+  if(mode==='choose'){
+    document.getElementById('authTitle').textContent = 'Restaurant Client Access';
+    document.getElementById('authSub').textContent = 'Ye software kai alag-alag restaurants ke liye use ho sakta hai. Har restaurant ka data alag rakhne ke liye pehle Client ID batayein.';
+    document.getElementById('authBody').innerHTML = `
+      <button class="btn accent" style="width:100%;margin-bottom:8px;" onclick="renderClientGate('register')">Naya Restaurant Register Karein</button>
+      <button class="btn ghost" style="width:100%;" onclick="renderClientGate('login')">Pehle Se Bane Client ID Se Login Karein</button>
+    `;
+  } else if(mode==='register'){
+    document.getElementById('authTitle').textContent = 'Naya Restaurant Register Karein';
+    document.getElementById('authSub').textContent = 'Client ID is restaurant ki pehchaan hai - isi se aapka data doosre restaurants ke data se alag rehta hai.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Client ID (jaise: sharma-hotel-jaipur)<input id="cg_id" style="width:100%"></label>
+      <label class="f">Password Key Banayein<input id="cg_key" type="text" style="width:100%"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitClientRegister()">Register Karein &amp; Aage Badhein</button>
+      <div style="text-align:center;margin-top:12px;"><a href="#" style="font-size:12px;color:var(--ink-soft);" onclick="event.preventDefault();renderClientGate('choose');">Wapas Jayein</a></div>
+    `;
+  } else if(mode==='login'){
+    document.getElementById('authTitle').textContent = 'Client Login';
+    document.getElementById('authSub').textContent = 'Apna Client ID aur Password Key daalein.';
+    document.getElementById('authBody').innerHTML = `
+      <label class="f">Client ID<input id="cg_id2" style="width:100%"></label>
+      <label class="f">Password Key<input id="cg_key2" type="text" style="width:100%"></label>
+      <div class="autherr" id="authErr"></div>
+      <button class="btn accent" style="width:100%;margin-top:6px;" onclick="submitClientLogin()">Login Karein</button>
+      <div style="text-align:center;margin-top:12px;"><a href="#" style="font-size:12px;color:var(--ink-soft);" onclick="event.preventDefault();renderClientGate('choose');">Wapas Jayein</a></div>
+    `;
+  }
+}
+function sanitizeClientId(raw){
+  return raw.trim().toLowerCase().replace(/[^a-z0-9\-_]/g,'-').replace(/-+/g,'-');
+}
+async function submitClientRegister(){
+  const id = sanitizeClientId(document.getElementById('cg_id').value);
+  const key = document.getElementById('cg_key').value.trim();
+  if(!id || !key){ document.getElementById('authErr').textContent = 'Client ID aur Password Key dono bharein.'; return; }
+  const existing = await clientMetaGet(id);
+  if(existing){ document.getElementById('authErr').textContent = 'Ye Client ID pehle se registered hai. "Login" use karein ya alag ID chunein.'; return; }
+  await clientMetaSet(id, {passwordKey:key, createdAt:new Date().toISOString()});
+  clientId = id; clientKey = key;
+  try{ localStorage.setItem('hms_client_id', id); localStorage.setItem('hms_client_key', key); }catch(e){}
+  await continueBoot();
+}
+async function submitClientLogin(){
+  const id = sanitizeClientId(document.getElementById('cg_id2').value);
+  const key = document.getElementById('cg_key2').value.trim();
+  const existing = await clientMetaGet(id);
+  if(!existing || existing.passwordKey !== key){
+    document.getElementById('authErr').textContent = 'Client ID ya Password Key galat hai.';
+    return;
+  }
+  clientId = id; clientKey = key;
+  try{ localStorage.setItem('hms_client_id', id); localStorage.setItem('hms_client_key', key); }catch(e){}
+  await continueBoot();
+}
+function switchClient(){
+  if(!confirm('Kisi doosre Restaurant (Client ID) se login karna hai? Aap is Client se logout ho jayenge.')) return;
+  try{ localStorage.removeItem('hms_client_id'); localStorage.removeItem('hms_client_key'); }catch(e){}
+  clientId=''; clientKey=''; currentUser=null;
+  renderClientGate('choose');
+}
+async function continueBoot(){
+  await loadState();
+  tickClock();
+  applyTheme(settings.theme || 'saffron');
+  updateBrand();
+  let sessionUserId = null;
+  try{ sessionUserId = localStorage.getItem('hms_session_user_id_'+clientId); }catch(e){}
+  const sessionUser = sessionUserId ? users.find(u=>u.id===sessionUserId) : null;
+  if(sessionUser){ currentUser = sessionUser; enterApp(); }
+  else { renderAuthScreen(); }
 }
 
 /* ---------------- AUTH ---------------- */
@@ -653,10 +754,10 @@ async function submitLogin(){
   enterApp();
 }
 function saveSession(userId){
-  try{ localStorage.setItem('hms_session_user_id', userId); }catch(e){}
+  try{ localStorage.setItem('hms_session_user_id_'+clientId, userId); }catch(e){}
 }
 function clearSession(){
-  try{ localStorage.removeItem('hms_session_user_id'); }catch(e){}
+  try{ localStorage.removeItem('hms_session_user_id_'+clientId); }catch(e){}
 }
 function logout(){
   currentUser = null;
@@ -2889,23 +2990,21 @@ function printReportPDF(){
 
 /* ---------------- INIT ---------------- */
 (async function init(){
-  await loadState();
-  tickClock();
-  applyTheme(settings.theme || 'saffron');
-  updateBrand();
   document.getElementById('orderOverlay').addEventListener('click', (e)=>{
     if(e.target.id==='orderOverlay') closeOrderModal();
   });
 
-  /* Restore previous login session (so refresh doesn't log the user out) */
-  let sessionUserId = null;
-  try{ sessionUserId = localStorage.getItem('hms_session_user_id'); }catch(e){}
-  const sessionUser = sessionUserId ? users.find(u=>u.id===sessionUserId) : null;
-  if(sessionUser){
-    currentUser = sessionUser;
-    enterApp();
+  let savedClientId = null, savedClientKey = null;
+  try{
+    savedClientId = localStorage.getItem('hms_client_id');
+    savedClientKey = localStorage.getItem('hms_client_key');
+  }catch(e){}
+
+  if(savedClientId && savedClientKey){
+    clientId = savedClientId; clientKey = savedClientKey;
+    await continueBoot();
   } else {
-    renderAuthScreen();
+    renderClientGate('choose');
   }
 })();
 </script>
@@ -2934,4 +3033,4 @@ function printReportPDF(){
   const analytics = getAnalytics(app);
      </script>
    </body>
- </html>
+</html>
